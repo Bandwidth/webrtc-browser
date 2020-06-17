@@ -1,6 +1,6 @@
 # Bandwidth WebRTC Browser SDK Documentation
 
-## Initialize the Bandwidth WebRTC SDK
+## Initialize the Bandwidth WebRTC Browser SDK
 
 ```javascript
 import BandwidthRtc from "@bandwidth/webrtc-browser";
