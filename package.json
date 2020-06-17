@@ -1,0 +1,39 @@
+{
+  "name": "@bandwidth/webrtc-browser",
+  "version": "0.1.0",
+  "description": "SDK for Bandwidth WebRTC Browser Applications",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc",
+    "test": "jest src --coverage",
+    "test:debug": "node --inspect node_modules/.bin/jest --runInBand --coverage src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bandwidth/webrtc-browser.git"
+  },
+  "author": "edge-services@bandwidth.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Bandwidth/webrtc-browser/issues"
+  },
+  "homepage": "https://github.com/Bandwidth/webrtc-browser#readme",
+  "devDependencies": {
+    "@babel/core": "^7.8.4",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/preset-env": "^7.8.4",
+    "@babel/preset-typescript": "^7.8.3",
+    "@types/jest": "^25.1.2",
+    "@types/node": "^13.5.1",
+    "babel-jest": "^25.1.0",
+    "jest": "^25.1.0",
+    "prettier": "^2.0.2",
+    "ts-node": "8.6.2",
+    "typedoc": "^0.16.9",
+    "typescript": "3.7.5"
+  },
+  "dependencies": {
+    "rpc-websockets": "^5.0.9",
+    "webrtc-adapter": "^7.6.2"
+  }
+}
