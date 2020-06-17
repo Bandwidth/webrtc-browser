@@ -1,4 +1,4 @@
-# Bandwidth WebRTC Client SDK Documentation
+# Bandwidth WebRTC Browser SDK Documentation
 
 ## Initialize the Bandwidth WebRTC SDK
 
