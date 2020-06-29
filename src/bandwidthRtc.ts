@@ -103,7 +103,7 @@ class BandwidthRtc {
     mediaStream.getTracks().forEach((track) => {
       console.log("track = " + track.label);
       var sender = peerConnection.addTrack(track, mediaStream);
-      if (track.kind === "audio")) {
+      if (track.kind === "audio") {
         this.dtmfSender = new DTMFSender(sender);
       }
     });

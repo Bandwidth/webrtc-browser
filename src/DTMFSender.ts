@@ -1,10 +1,12 @@
 class DTMFSender {
   private _outputStreamNode: MediaStreamAudioDestinationNode;
   private _outputStream: MediaStream;
+  private _gainNode: GainNode;
+  private _filter: BiquadFilterNode;
   private _source: MediaStreamAudioSourceNode;
   private _f1Oscillator: OscillatorNode;
   private _f2Oscillator: OscillatorNode;
-  private _duration: number = 100;
+  private _duration: number = 1500;
   private _interToneGap: number = 70;
   private _toneBuffer: string = "";
   private _playing: boolean = false;
@@ -46,13 +48,28 @@ class DTMFSender {
 
     this._f1Oscillator = ctx.createOscillator();
     this._f1Oscillator.connect(this._outputStreamNode);
+    this._f1Oscillator.type = 'sine';
     this._f1Oscillator.frequency.value = 0;
     this._f1Oscillator.start(0);
 
     this._f2Oscillator = ctx.createOscillator();
     this._f2Oscillator.connect(this._outputStreamNode);
+    this._f2Oscillator.type = 'sine';
     this._f2Oscillator.frequency.value = 0;
     this._f2Oscillator.start(0);
+
+	this._gainNode = ctx.createGain();
+	this._gainNode.gain.value = 0.25;
+
+	this._filter = ctx.createBiquadFilter();
+	this._filter.type = "lowpass";
+
+	this._f1Oscillator.connect(this._gainNode);
+	this._f2Oscillator.connect(this._gainNode);
+
+	this._gainNode.connect(this._filter);
+	this._filter.connect(ctx.destination);
+
     if (rtpSender) {
       rtpSender.replaceTrack(this._outputStream.getAudioTracks()[0]);
     }
