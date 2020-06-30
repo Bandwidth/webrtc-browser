@@ -101,7 +101,7 @@ class BandwidthRtc {
     const peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
     this.setupNewPeerConnection(peerConnection, endpointId, mediaTypes);
     mediaStream.getTracks().forEach((track) => {
-      console.log("track = " + track.label);
+      console.log("track = " + track.label + ", kind = " + track.kind);
       var sender = peerConnection.addTrack(track, mediaStream);
       if (track.kind === "audio") {
         this.dtmfSender = new DTMFSender(sender);
