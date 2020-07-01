@@ -20,6 +20,7 @@ class Signaling extends EventEmitter {
         rtcOptions = { ...rtcOptions, ...options };
       }
       const websocketUrl = `${rtcOptions.websocketUrl}/v2/?token=${authParams.deviceToken}&sdkVersion=${sdkVersion}`;
+      console.log(`Connecting to ${websocketUrl}`);
       const ws = new JsonRpcClient(websocketUrl, {
         max_reconnects: 0, // Unlimited
       });
@@ -86,8 +87,14 @@ class Signaling extends EventEmitter {
         sdpMid: candidate.sdpMid,
         sdpMLineIndex: candidate.sdpMLineIndex,
       };
-      this.ws?.call("addIceCandidate", params);
+      this.ws?.notify("addIceCandidate", params);
     }
+  }
+
+  unpublish(endpointId: string) {
+    this.ws?.notify("unpublish", {
+      endpointId: endpointId,
+    });
   }
 
   private setMediaPreferences(sendRecv = false, aggregationType = MediaAggregationType.NONE): Promise<{}> {
