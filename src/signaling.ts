@@ -4,7 +4,7 @@ import { Client as JsonRpcClient } from "rpc-websockets";
 import { MediaAggregationType, RtcAuthParams, RtcOptions, MediaType, SdpRequest, SdpResponse } from "./types";
 
 class Signaling extends EventEmitter {
-  private defaultWebsocketUrl: string = "wss://device-rtc.edge.bandwidth.com";
+  private defaultWebsocketUrl: string = "wss://device.webrtc.bandwidth.com";
   private ws: JsonRpcClient | null = null;
   private pingInterval?: NodeJS.Timeout;
 

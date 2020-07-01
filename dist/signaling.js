@@ -68,7 +68,7 @@ var Signaling = /** @class */ (function (_super) {
     __extends(Signaling, _super);
     function Signaling() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
-        _this.defaultWebsocketUrl = "wss://device-rtc.edge.bandwidth.com";
+        _this.defaultWebsocketUrl = "wss://device.webrtc.bandwidth.com";
         _this.ws = null;
         return _this;
     }

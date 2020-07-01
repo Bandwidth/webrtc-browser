@@ -136,7 +136,9 @@ var BandwidthRtc = /** @class */ (function () {
                         mediaStream.getTracks().forEach(function (track) {
                             console.log("track = " + track.label + ", kind = " + track.kind);
                             var sender = peerConnection.addTrack(track, mediaStream);
-                            _this.dtmfSender = new DTMFSender_1.default(sender);
+                            if (track.kind === "audio") {
+                                _this.dtmfSender = new DTMFSender_1.default(sender);
+                            }
                         });
                         this.localPeerConnections.set(endpointId, peerConnection);
                         this.localStreams.set(endpointId, mediaStream);
