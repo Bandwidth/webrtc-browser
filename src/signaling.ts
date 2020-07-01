@@ -20,7 +20,6 @@ class Signaling extends EventEmitter {
         rtcOptions = { ...rtcOptions, ...options };
       }
       const websocketUrl = `${rtcOptions.websocketUrl}/v2/?token=${authParams.deviceToken}&sdkVersion=${sdkVersion}`;
-      console.log(`Connecting to ${websocketUrl}`);
       const ws = new JsonRpcClient(websocketUrl, {
         max_reconnects: 0, // Unlimited
       });
