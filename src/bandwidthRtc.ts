@@ -13,6 +13,7 @@ import {
 } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "./audioLevelDetector";
+import DTMFSender from "./DTMFSender";
 
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [],
@@ -29,6 +30,9 @@ class BandwidthRtc {
   private remotePeerConnections: Map<string, RTCPeerConnection> = new Map();
   private iceCandidateQueues: Map<string, RTCIceCandidate[]> = new Map();
 
+  // DTMF
+  private dtmfSender: any = null;
+
   // Event handlers
   private streamAvailableHandler?: { (event: RtcStream): void };
   private streamUnavailableHandler?: { (endpointId: string): void };
@@ -36,6 +40,12 @@ class BandwidthRtc {
   constructor() {
     this.setMicEnabled = this.setMicEnabled.bind(this);
     this.setCameraEnabled = this.setCameraEnabled.bind(this);
+  }
+
+  public sendDtmf(tone: string) {
+    if (this.dtmfSender != null) {
+      this.dtmfSender.insertDTMF(tone);
+    }
   }
 
   async connect(authParams: RtcAuthParams, options?: RtcOptions) {
@@ -91,7 +101,10 @@ class BandwidthRtc {
     const peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
     this.setupNewPeerConnection(peerConnection, endpointId, mediaTypes);
     mediaStream.getTracks().forEach((track) => {
-      peerConnection.addTrack(track, mediaStream);
+      var sender = peerConnection.addTrack(track, mediaStream);
+      if (track.kind === "audio") {
+        this.dtmfSender = new DTMFSender(sender);
+      }
     });
 
     this.localPeerConnections.set(endpointId, peerConnection);
