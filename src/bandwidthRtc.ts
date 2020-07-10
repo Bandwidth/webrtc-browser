@@ -13,7 +13,7 @@ import {
 } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "./audioLevelDetector";
-import DTMFSender from "./DTMFSender";
+import DtmfSender from "./DtmfSender";
 
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [],
@@ -31,7 +31,7 @@ class BandwidthRtc {
   private iceCandidateQueues: Map<string, RTCIceCandidate[]> = new Map();
 
   // DTMF
-  private dtmfSender: any = null;
+  private dtmfSender?: DtmfSender;
 
   // Event handlers
   private streamAvailableHandler?: { (event: RtcStream): void };
@@ -43,8 +43,8 @@ class BandwidthRtc {
   }
 
   public sendDtmf(tone: string) {
-    if (this.dtmfSender != null) {
-      this.dtmfSender.insertDTMF(tone);
+    if (this.dtmfSender) {
+      this.dtmfSender.insertDtmf(tone);
     }
   }
 
@@ -103,7 +103,7 @@ class BandwidthRtc {
     mediaStream.getTracks().forEach((track) => {
       var sender = peerConnection.addTrack(track, mediaStream);
       if (track.kind === "audio") {
-        this.dtmfSender = new DTMFSender(sender);
+        this.dtmfSender = new DtmfSender(sender);
       }
     });
 
@@ -278,13 +278,13 @@ class BandwidthRtc {
       }
     };
 
-    peerConnection.oniceconnectionstatechange = (event) => {};
+    peerConnection.oniceconnectionstatechange = (event) => { };
 
-    peerConnection.onicegatheringstatechange = (event) => {};
+    peerConnection.onicegatheringstatechange = (event) => { };
 
-    peerConnection.onnegotiationneeded = (event) => {};
+    peerConnection.onnegotiationneeded = (event) => { };
 
-    peerConnection.onsignalingstatechange = (event) => {};
+    peerConnection.onsignalingstatechange = (event) => { };
 
     peerConnection.onicecandidate = (event) => this.signaling.sendIceCandidate(endpointId, event.candidate);
 
@@ -302,11 +302,11 @@ class BandwidthRtc {
         });
       }
 
-      track.onmute = (event) => {};
+      track.onmute = (event) => { };
 
-      track.onunmute = (event) => {};
+      track.onunmute = (event) => { };
 
-      track.onended = (event) => {};
+      track.onended = (event) => { };
     };
   }
 
