@@ -20,7 +20,6 @@ const RTC_CONFIGURATION: RTCConfiguration = {
 };
 
 class BandwidthRtc {
-
   // Signaling
   private signaling: Signaling = new Signaling();
 
