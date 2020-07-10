@@ -2,6 +2,7 @@
 const MaxToneDuration = 6000;
 const DefaultToneDuration = 1500;
 const MinToneDuration = 40;
+const Gain = 0.25;
 
 class DtmfSender {
   // Audio context
@@ -14,7 +15,7 @@ class DtmfSender {
   private osc2: OscillatorNode;
 
   // State
-  private toneDuration: number = 1500;
+  private toneDuration: number = DefaultToneDuration;
   private tone: string = "";
   private playing: boolean = false;
 
@@ -61,7 +62,7 @@ class DtmfSender {
     this.osc2.start(0);
 
     this.gain = audioCtx.createGain();
-    this.gain.gain.value = 0.25;
+    this.gain.gain.value = Gain;
 
     this.filter = audioCtx.createBiquadFilter();
     this.filter.type = "lowpass";
