@@ -20,6 +20,7 @@ const RTC_CONFIGURATION: RTCConfiguration = {
 };
 
 class BandwidthRtc {
+
   // Signaling
   private signaling: Signaling = new Signaling();
 
@@ -278,13 +279,13 @@ class BandwidthRtc {
       }
     };
 
-    peerConnection.oniceconnectionstatechange = (event) => { };
+    peerConnection.oniceconnectionstatechange = (event) => {};
 
-    peerConnection.onicegatheringstatechange = (event) => { };
+    peerConnection.onicegatheringstatechange = (event) => {};
 
-    peerConnection.onnegotiationneeded = (event) => { };
+    peerConnection.onnegotiationneeded = (event) => {};
 
-    peerConnection.onsignalingstatechange = (event) => { };
+    peerConnection.onsignalingstatechange = (event) => {};
 
     peerConnection.onicecandidate = (event) => this.signaling.sendIceCandidate(endpointId, event.candidate);
 
@@ -302,11 +303,11 @@ class BandwidthRtc {
         });
       }
 
-      track.onmute = (event) => { };
+      track.onmute = (event) => {};
 
-      track.onunmute = (event) => { };
+      track.onunmute = (event) => {};
 
-      track.onended = (event) => { };
+      track.onended = (event) => {};
     };
   }
 
