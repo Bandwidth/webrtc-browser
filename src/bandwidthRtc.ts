@@ -56,9 +56,9 @@ class BandwidthRtc {
     this.streamUnavailableHandler = callback;
   }
 
-  async publish(mediaStream: MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream>;
-  async publish(constraints?: MediaStreamConstraints, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream>;
-  async publish(input: MediaStreamConstraints | MediaStream | undefined, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream> {
+  async publish(mediaStream: MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream>;
+  async publish(constraints?: MediaStreamConstraints, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream>;
+  async publish(input: MediaStreamConstraints | MediaStream | undefined, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream> {
     let mediaStream: MediaStream;
     let constraints: MediaStreamConstraints = { audio: true, video: true };
     if (input instanceof MediaStream) {
@@ -78,7 +78,7 @@ class BandwidthRtc {
       mediaTypes.push(MediaType.VIDEO);
     }
 
-    const sdpRequest = await this.signaling.requestToPublish(mediaTypes);
+    const sdpRequest = await this.signaling.requestToPublish(mediaTypes, alias);
     const endpointId = sdpRequest.endpointId;
 
     if (audioLevelChangeHandler) {
