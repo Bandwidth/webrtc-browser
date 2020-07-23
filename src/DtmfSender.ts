@@ -1,6 +1,6 @@
 // Literals
 const MaxToneDuration = 6000;
-const DefaultToneDuration = 1500;
+const DefaultToneDuration = 300;
 const MinToneDuration = 40;
 const Gain = 0.25;
 
@@ -44,7 +44,6 @@ class DtmfSender {
     this.outputStream = this.outputNode.stream;
 
     let inputStream: MediaStream = new MediaStream([sender.track]);
-    let rtpSender: RTCRtpSender = sender;
 
     this.sourceNode = audioCtx.createMediaStreamSource(inputStream);
     this.sourceNode.connect(this.outputNode);
@@ -73,14 +72,11 @@ class DtmfSender {
     this.gain.connect(this.filter);
     this.filter.connect(audioCtx.destination);
 
-    if (rtpSender) {
-      rtpSender.replaceTrack(this.outputStream.getAudioTracks()[0]);
-    }
-
+    sender.replaceTrack(this.outputStream.getAudioTracks()[0]);
     return this;
   }
 
-  insertDtmf(tone: string, duration = DefaultToneDuration) {
+  sendDtmf(tone: string, duration = DefaultToneDuration) {
     if ((tone.length !== 1) || (/[^0-9a-d#\*,]/i.test(tone))) {
       throw new Error("Invalid tone");
     }
@@ -112,6 +108,15 @@ class DtmfSender {
     this.playing = false;
     this.osc1.frequency.value = 0;
     this.osc2.frequency.value = 0;
+  }
+
+  disconnect() {
+    this.outputNode.disconnect();
+    this.gain.disconnect();
+    this.filter.disconnect();
+    this.sourceNode.disconnect();
+    this.osc1.disconnect();
+    this.osc2.disconnect();
   }
 }
 

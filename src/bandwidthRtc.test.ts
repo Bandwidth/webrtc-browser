@@ -3,6 +3,7 @@ import BandwidthRtc from "./bandwidthRtc";
 test("test constructor", () => {
   const bandwidthRtc = new BandwidthRtc();
   expect(bandwidthRtc).toBeInstanceOf(BandwidthRtc);
+  expect(bandwidthRtc.sendDtmf).toBeInstanceOf(Function);
   expect(bandwidthRtc.setMicEnabled).toBeInstanceOf(Function);
   expect(bandwidthRtc.setCameraEnabled).toBeInstanceOf(Function);
 });
