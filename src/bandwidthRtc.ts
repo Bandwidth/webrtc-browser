@@ -111,7 +111,7 @@ class BandwidthRtc {
       streams = Array.from(this.localStreams.keys());
     }
     for (const s of streams) {
-      // TODO: notify the platform?
+      this.signaling.unpublish(s);
       this.cleanupLocalStreams(s);
     }
   }
