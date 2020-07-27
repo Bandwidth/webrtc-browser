@@ -1,7 +1,7 @@
 // Literals
-const MaxToneDuration = 6000;
-const DefaultToneDuration = 300;
-const MinToneDuration = 40;
+const MaxToneDurationMs = 6000;
+const DefaultToneDurationMs = 300;
+const MinToneDurationMs = 40;
 const Gain = 0.25;
 
 class DtmfSender {
@@ -15,7 +15,7 @@ class DtmfSender {
   private osc2: OscillatorNode;
 
   // State
-  private toneDuration: number = DefaultToneDuration;
+  private toneDuration: number = DefaultToneDurationMs;
   private tone: string = "";
   private playing: boolean = false;
 
@@ -76,12 +76,16 @@ class DtmfSender {
     return this;
   }
 
-  sendDtmf(tone: string, duration = DefaultToneDuration) {
+  sendDtmf(tone: string, duration = DefaultToneDurationMs) {
     if ((tone.length !== 1) || (/[^0-9a-d#\*,]/i.test(tone))) {
       throw new Error("Invalid tone");
     }
 
-    this.toneDuration = Math.min(MaxToneDuration, Math.max(MinToneDuration, duration));
+    if (duration < MinToneDurationMs || duration > MaxToneDurationMs) {
+      throw new Error(`Invalid duration ${duration}, must be between ${MinToneDurationMs} and ${MaxToneDurationMs}`);
+    }
+
+    this.toneDuration = duration;
     this.tone = tone;
 
     if (!this.playing) {

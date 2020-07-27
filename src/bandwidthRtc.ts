@@ -13,7 +13,7 @@ import {
 } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "./audioLevelDetector";
-import DtmfSender from "./DtmfSender";
+import DtmfSender from "./dtmfSender";
 
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [],
