@@ -66,13 +66,15 @@ class Signaling extends EventEmitter {
   }
 
   requestToPublish(mediaTypes: MediaType[], alias ?: string): Promise<SdpRequest> {
-    let params: object = {
-      mediaTypes: mediaTypes,
-    };
+    let params: object;
     if (alias) {
       params = {
         mediaTypes: mediaTypes,
         alias: alias,
+      }
+    } else {
+      params = {
+        mediaTypes: mediaTypes,
       }
     }
     return this.ws?.call("requestToPublish", params) as Promise<SdpRequest>;
