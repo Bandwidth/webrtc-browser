@@ -146,16 +146,6 @@ class BandwidthRtc {
     }
   }
 
-  enableDtmf(enabled: boolean, streamId?: string) {
-    if (streamId) {
-      this.localDtmfSenders
-        .get(streamId)
-        ?.enable(enabled);
-    } else {
-      this.localDtmfSenders.forEach((dtmfSender) => dtmfSender.enable(enabled));
-    }
-  }
-
   setCameraEnabled(enabled: boolean, streamId?: string) {
     if (streamId) {
       this.localStreams
