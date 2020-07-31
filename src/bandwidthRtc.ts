@@ -13,6 +13,7 @@ import {
 } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "./audioLevelDetector";
+import DtmfSender from "./dtmfSender";
 
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [],
@@ -28,6 +29,9 @@ class BandwidthRtc {
 
   private remotePeerConnections: Map<string, RTCPeerConnection> = new Map();
   private iceCandidateQueues: Map<string, RTCIceCandidate[]> = new Map();
+
+  // DTMF
+  private localDtmfSenders: Map<string, DtmfSender> = new Map();
 
   // Event handlers
   private streamAvailableHandler?: { (event: RtcStream): void };
@@ -91,7 +95,12 @@ class BandwidthRtc {
     const peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
     this.setupNewPeerConnection(peerConnection, endpointId, mediaTypes);
     mediaStream.getTracks().forEach((track) => {
-      peerConnection.addTrack(track, mediaStream);
+      var sender = peerConnection.addTrack(track, mediaStream);
+
+      // Inject DTMF into one audio track in the stream
+      if ((track.kind === "audio") && !this.localDtmfSenders.has(endpointId)) {
+        this.localDtmfSenders.set(endpointId, new DtmfSender(sender));
+      }
     });
 
     this.localPeerConnections.set(endpointId, peerConnection);
@@ -113,6 +122,16 @@ class BandwidthRtc {
     for (const s of streams) {
       this.signaling.unpublish(s);
       this.cleanupLocalStreams(s);
+    }
+  }
+
+  sendDtmf(tone: string, streamId?: string) {
+    if (streamId) {
+      this.localDtmfSenders
+        .get(streamId)
+        ?.sendDtmf(tone);
+    } else {
+      this.localDtmfSenders.forEach((dtmfSender) => dtmfSender.sendDtmf(tone));
     }
   }
 
@@ -309,6 +328,10 @@ class BandwidthRtc {
       const localPeerConnection = this.localPeerConnections.get(s);
       localPeerConnection?.close();
       this.localPeerConnections.delete(s);
+
+      const dtmfSender = this.localDtmfSenders.get(s);
+      dtmfSender?.disconnect();
+      this.localDtmfSenders.delete(s);
     }
   }
 
