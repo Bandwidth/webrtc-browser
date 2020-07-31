@@ -59,7 +59,7 @@ class BandwidthRtc {
   onStreamUnavailable(callback: { (endpointId: string): void }): void {
     this.streamUnavailableHandler = callback;
   }
-  
+
   async publish(mediaStream: MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream>;
   async publish(constraints?: MediaStreamConstraints, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream>;
   async publish(input: MediaStreamConstraints | MediaStream | undefined, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream> {
