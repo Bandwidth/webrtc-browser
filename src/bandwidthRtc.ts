@@ -144,12 +144,9 @@ class BandwidthRtc {
     } else {
       this.localStreams.forEach((stream) => stream.getAudioTracks().forEach((track) => (track.enabled = enabled)));
     }
-
-    // Update the DTMF state per the mic state
-    this.enableDtmf(enabled, streamId);
   }
 
-  private enableDtmf(enabled: boolean, streamId?: string) {
+  enableDtmf(enabled: boolean, streamId?: string) {
     if (streamId) {
       this.localDtmfSenders
         .get(streamId)
