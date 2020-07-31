@@ -59,7 +59,7 @@ class BandwidthRtc {
   onStreamUnavailable(callback: { (endpointId: string): void }): void {
     this.streamUnavailableHandler = callback;
   }
-
+  
   async publish(mediaStream: MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream>;
   async publish(constraints?: MediaStreamConstraints, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream>;
   async publish(input: MediaStreamConstraints | MediaStream | undefined, audioLevelChangeHandler?: AudioLevelChangeHandler): Promise<RtcStream> {
@@ -143,6 +143,19 @@ class BandwidthRtc {
         .forEach((track) => (track.enabled = enabled));
     } else {
       this.localStreams.forEach((stream) => stream.getAudioTracks().forEach((track) => (track.enabled = enabled)));
+    }
+
+    // Update the DTMF state per the mic state
+    this.enableDtmf(enabled, streamId);
+  }
+
+  private enableDtmf(enabled: boolean, streamId?: string) {
+    if (streamId) {
+      this.localDtmfSenders
+        .get(streamId)
+        ?.enable(enabled);
+    } else {
+      this.localDtmfSenders.forEach((dtmfSender) => dtmfSender.enable(enabled));
     }
   }
 

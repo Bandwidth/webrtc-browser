@@ -18,6 +18,7 @@ class DtmfSender {
   private toneDuration: number = DefaultToneDurationMs;
   private tone: string = "";
   private playing: boolean = false;
+  private enabled: boolean = true;
 
   private dtmfFreq: Map<string, Array<number>> = new Map([
     ["1", [1209, 697]],
@@ -76,7 +77,15 @@ class DtmfSender {
     return this;
   }
 
+  enable(enabled: boolean) {
+    this.enabled = enabled;
+  }
+  
   sendDtmf(tone: string, duration = DefaultToneDurationMs) {
+    if (!this.enabled) {
+      return;
+    }
+
     if ((tone.length !== 1) || (/[^0-9a-d#\*,]/i.test(tone))) {
       throw new Error("Invalid tone");
     }
