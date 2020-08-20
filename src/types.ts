@@ -28,6 +28,7 @@ export interface SdpRequest {
   endpointId: string;
   mediaTypes: MediaType[];
   direction: RTCRtpTransceiverDirection;
+  alias: string
 }
 
 export interface SdpResponse {
@@ -39,6 +40,7 @@ export interface RtcStream {
   endpointId: string;
   mediaTypes: MediaType[];
   mediaStream: MediaStream;
+  alias?: string
 }
 
 export interface EndpointRemovedEvent {

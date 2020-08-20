@@ -33,7 +33,9 @@
     "typescript": "3.7.5"
   },
   "dependencies": {
+    "@types/uuid": "^8.3.0",
     "rpc-websockets": "^5.0.9",
+    "uuid": "^8.3.0",
     "webrtc-adapter": "^7.6.2"
   }
 }
