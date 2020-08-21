@@ -62,7 +62,11 @@ class BandwidthRtc {
 
   async publish(mediaStream: MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream>;
   async publish(constraints?: MediaStreamConstraints, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream>;
-  async publish(input: MediaStreamConstraints | MediaStream | undefined, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream> {
+  async publish(
+    input: MediaStreamConstraints | MediaStream | undefined,
+    audioLevelChangeHandler?: AudioLevelChangeHandler,
+    alias?: string
+  ): Promise<RtcStream> {
     let mediaStream: MediaStream;
     let constraints: MediaStreamConstraints = { audio: true, video: true };
     if (input instanceof MediaStream) {
@@ -98,7 +102,7 @@ class BandwidthRtc {
       var sender = peerConnection.addTrack(track, mediaStream);
 
       // Inject DTMF into one audio track in the stream
-      if ((track.kind === "audio") && !this.localDtmfSenders.has(endpointId)) {
+      if (track.kind === "audio" && !this.localDtmfSenders.has(endpointId)) {
         this.localDtmfSenders.set(endpointId, new DtmfSender(sender));
       }
     });
@@ -127,9 +131,7 @@ class BandwidthRtc {
 
   sendDtmf(tone: string, streamId?: string) {
     if (streamId) {
-      this.localDtmfSenders
-        .get(streamId)
-        ?.sendDtmf(tone);
+      this.localDtmfSenders.get(streamId)?.sendDtmf(tone);
     } else {
       this.localDtmfSenders.forEach((dtmfSender) => dtmfSender.sendDtmf(tone));
     }

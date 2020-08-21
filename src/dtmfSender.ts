@@ -31,7 +31,7 @@ class DtmfSender {
     ["9", [1477, 852]],
     ["*", [1209, 941]],
     ["0", [1336, 941]],
-    ["#", [1477, 941]]
+    ["#", [1477, 941]],
   ]);
 
   constructor(sender: RTCRtpSender) {
@@ -77,7 +77,7 @@ class DtmfSender {
   }
 
   sendDtmf(tone: string, duration = DefaultToneDurationMs) {
-    if ((tone.length !== 1) || (/[^0-9a-d#\*,]/i.test(tone))) {
+    if (tone.length !== 1 || /[^0-9a-d#\*,]/i.test(tone)) {
       throw new Error("Invalid tone");
     }
 
