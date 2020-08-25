@@ -1,4 +1,5 @@
 const sdkVersion = require("../package.json").version;
+import { v4 as uuid } from "uuid";
 import { EventEmitter } from "events";
 import { Client as JsonRpcClient } from "rpc-websockets";
 import { MediaAggregationType, RtcAuthParams, RtcOptions, MediaType, SdpRequest, SdpResponse } from "./types";
@@ -7,6 +8,7 @@ class Signaling extends EventEmitter {
   private defaultWebsocketUrl: string = "wss://device.webrtc.bandwidth.com";
   private ws: JsonRpcClient | null = null;
   private pingInterval?: NodeJS.Timeout;
+  private uniqueDeviceId: string = uuid();
 
   Signaling() {}
 
@@ -19,7 +21,7 @@ class Signaling extends EventEmitter {
       if (options) {
         rtcOptions = { ...rtcOptions, ...options };
       }
-      const websocketUrl = `${rtcOptions.websocketUrl}/v2/?token=${authParams.deviceToken}&sdkVersion=${sdkVersion}`;
+      const websocketUrl = `${rtcOptions.websocketUrl}/v2/?token=${authParams.deviceToken}&sdkVersion=${sdkVersion}&uniqueId=${this.uniqueDeviceId}`;
       const ws = new JsonRpcClient(websocketUrl, {
         max_reconnects: 0, // Unlimited
       });

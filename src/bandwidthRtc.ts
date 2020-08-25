@@ -97,7 +97,7 @@ class BandwidthRtc {
     }
 
     const peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
-    this.setupNewPeerConnection(peerConnection, endpointId, mediaTypes);
+    this.setupNewPeerConnection(peerConnection, endpointId, mediaTypes, alias);
     mediaStream.getTracks().forEach((track) => {
       var sender = peerConnection.addTrack(track, mediaStream);
 
@@ -116,6 +116,7 @@ class BandwidthRtc {
       endpointId: endpointId,
       mediaStream: mediaStream,
       mediaTypes: mediaTypes,
+      alias: alias,
     };
   }
 
@@ -211,14 +212,11 @@ class BandwidthRtc {
 
   private async handleSdpNeededEvent(sdpRequest: SdpRequest) {
     const endpointId = sdpRequest.endpointId;
-    let peerConnection = this.remotePeerConnections.get(endpointId) || this.localPeerConnections.get(endpointId);
-    // TODO: are we safe not to perform a check in this case?
-    if (!peerConnection) {
-      peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
-      this.setupNewPeerConnection(peerConnection, endpointId, sdpRequest.mediaTypes);
+    const alias = sdpRequest.alias;
+    let peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
+    this.setupNewPeerConnection(peerConnection, endpointId, sdpRequest.mediaTypes, alias);
 
-      this.remotePeerConnections.set(endpointId, peerConnection);
-    }
+    this.remotePeerConnections.set(endpointId, peerConnection);
 
     return this.negotiateSdp(sdpRequest, peerConnection as RTCPeerConnection);
   }
@@ -272,17 +270,16 @@ class BandwidthRtc {
     }
   }
 
-  private setupNewPeerConnection(peerConnection: RTCPeerConnection, endpointId: string, mediaTypes: MediaType[]): void {
+  private setupNewPeerConnection(peerConnection: RTCPeerConnection, endpointId: string, mediaTypes: MediaType[], alias?: string): void {
     peerConnection.onconnectionstatechange = (event: Event) => {
       const peerConnection = event.target as RTCPeerConnection;
       const connectionState = peerConnection.connectionState;
       if (connectionState === "disconnected" || connectionState === "failed") {
+        // TODO: if the peer that is disconnected/failed was a publish, we should try and re-publish it
         if (this.streamUnavailableHandler) {
           this.streamUnavailableHandler(endpointId);
         }
-        if (connectionState === "failed") {
-          this.cleanupRemoteStreams(endpointId);
-        }
+        this.cleanupRemoteStreams(endpointId);
       }
     };
 
@@ -307,6 +304,7 @@ class BandwidthRtc {
           endpointId: endpointId,
           mediaStream: event.streams[0],
           mediaTypes: mediaTypes,
+          alias: alias,
         });
       }
 
