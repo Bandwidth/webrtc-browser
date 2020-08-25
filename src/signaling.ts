@@ -1,5 +1,5 @@
 const sdkVersion = require("../package.json").version;
-import { v4 as uuid } from 'uuid';
+import { v4 as uuid } from "uuid";
 import { EventEmitter } from "events";
 import { Client as JsonRpcClient } from "rpc-websockets";
 import { MediaAggregationType, RtcAuthParams, RtcOptions, MediaType, SdpRequest, SdpResponse } from "./types";
