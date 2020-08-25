@@ -67,17 +67,17 @@ class Signaling extends EventEmitter {
     }
   }
 
-  requestToPublish(mediaTypes: MediaType[], alias ?: string): Promise<SdpRequest> {
+  requestToPublish(mediaTypes: MediaType[], alias?: string): Promise<SdpRequest> {
     let params: object;
     if (alias) {
       params = {
         mediaTypes: mediaTypes,
         alias: alias,
-      }
+      };
     } else {
       params = {
         mediaTypes: mediaTypes,
-      }
+      };
     }
     return this.ws?.call("requestToPublish", params) as Promise<SdpRequest>;
   }
@@ -97,8 +97,14 @@ class Signaling extends EventEmitter {
         sdpMid: candidate.sdpMid,
         sdpMLineIndex: candidate.sdpMLineIndex,
       };
-      this.ws?.call("addIceCandidate", params);
+      this.ws?.notify("addIceCandidate", params);
     }
+  }
+
+  unpublish(endpointId: string) {
+    this.ws?.notify("unpublish", {
+      endpointId: endpointId,
+    });
   }
 
   private setMediaPreferences(sendRecv = false, aggregationType = MediaAggregationType.NONE): Promise<{}> {
