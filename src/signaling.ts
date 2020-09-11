@@ -29,15 +29,17 @@ class Signaling extends EventEmitter {
       ws.addListener("sdpNeeded", (event) => this.emit("sdpNeeded", event));
       ws.addListener("addIceCandidate", (event) => this.emit("addIceCandidate", event));
       ws.addListener("endpointRemoved", (event) => this.emit("endpointRemoved", event));
+      
+      const hasMediaPreferences = false;
 
       ws.on("open", async () => {
         window.addEventListener("unload", (event) => {
           this.disconnect();
         });
-        await this.setMediaPreferences();
-        this.pingInterval = setInterval(() => {
-          ws.call("ping", {});
-        }, 300000);
+	if (this.hasMediaPreferences != false) {
+	  await this.setMediaPreferences();
+	  this.hasMediaPreferences = true;	
+	}
         resolve();
       });
 
