@@ -9,6 +9,7 @@ class Signaling extends EventEmitter {
   private ws: JsonRpcClient | null = null;
   private pingInterval?: NodeJS.Timeout;
   private uniqueDeviceId: string = uuid();
+  private hasSetMediaPreferences: boolean = false;
 
   Signaling() {}
 
@@ -29,16 +30,14 @@ class Signaling extends EventEmitter {
       ws.addListener("sdpNeeded", (event) => this.emit("sdpNeeded", event));
       ws.addListener("addIceCandidate", (event) => this.emit("addIceCandidate", event));
       ws.addListener("endpointRemoved", (event) => this.emit("endpointRemoved", event));
-      
-      const hasMediaPreferences = false;
 
       ws.on("open", async () => {
         window.addEventListener("unload", (event) => {
           this.disconnect();
         });
-        if (!this.hasMediaPreferences) {
+        if (!this.hasSetMediaPreferences) {
           await this.setMediaPreferences();
-          this.hasMediaPreferences = true;
+          this.hasSetMediaPreferences = true;
         }
         resolve();
       });
