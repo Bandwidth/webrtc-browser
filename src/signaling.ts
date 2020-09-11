@@ -36,7 +36,7 @@ class Signaling extends EventEmitter {
         window.addEventListener("unload", (event) => {
           this.disconnect();
         });
-	if (this.hasMediaPreferences != false) {
+	if (!this.hasMediaPreferences) {
 	  await this.setMediaPreferences();
 	  this.hasMediaPreferences = true;	
 	}
