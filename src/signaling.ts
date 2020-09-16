@@ -39,6 +39,9 @@ class Signaling extends EventEmitter {
           await this.setMediaPreferences();
           this.hasSetMediaPreferences = true;
         }
+        this.pingInterval = setInterval(() => {
+          ws.call("ping", {});
+        }, 300000);
         resolve();
       });
 
