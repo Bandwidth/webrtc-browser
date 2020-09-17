@@ -9,6 +9,7 @@ class Signaling extends EventEmitter {
   private ws: JsonRpcClient | null = null;
   private pingInterval?: NodeJS.Timeout;
   private uniqueDeviceId: string = uuid();
+  private hasSetMediaPreferences: boolean = false;
 
   Signaling() {}
 
@@ -34,7 +35,10 @@ class Signaling extends EventEmitter {
         window.addEventListener("unload", (event) => {
           this.disconnect();
         });
-        await this.setMediaPreferences();
+        if (!this.hasSetMediaPreferences) {
+          await this.setMediaPreferences();
+          this.hasSetMediaPreferences = true;
+        }
         this.pingInterval = setInterval(() => {
           ws.call("ping", {});
         }, 300000);
