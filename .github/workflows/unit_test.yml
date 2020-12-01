@@ -1,11 +1,7 @@
 name: Unit Tests
 
 on:
-  push:
-    branches:
-      - main
-      - master
-      - hotfix/*
+  push
 
 jobs:
   build-and-test:
