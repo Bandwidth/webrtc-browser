@@ -1,0 +1,23 @@
+name: Publish Release
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  publish-npm:
+    # Only run if release is a prod release
+    if: "!github.event.release.prerelease"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          ref: refs/heads/master
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+          check-latest: true
+      - name: npm install
+        run: npm install
