@@ -4,5 +4,8 @@ coverage
 .DS_Store
 .vscode
 src/**.js
-.idea
+*.swp
 *.iml
+*.iws
+*.ipr
+.idea/
