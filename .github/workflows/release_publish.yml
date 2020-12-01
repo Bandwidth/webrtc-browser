@@ -21,3 +21,16 @@ jobs:
           check-latest: true
       - name: npm install
         run: npm install
+      - name: version and publish
+        run: |
+          export MAJOR_MINOR_SEMVER=${GITHUB_REF:11}
+          git config user.name $GITHUB_ACTOR
+          git config user.email gh-actions-${GITHUB_ACTOR}@github.com
+          git remote add gh-origin https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+
+          npm version ${MAJOR_MINOR_SEMVER} --force -m "Bump version to %s"
+          git push gh-origin HEAD:master --tags
+
+          npm publish --access public
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
