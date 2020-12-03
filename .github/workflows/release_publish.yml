@@ -31,6 +31,8 @@ jobs:
           npm version ${MAJOR_MINOR_SEMVER} --force -m "Bump version to %s"
           git push gh-origin HEAD:master --tags
 
+          echo "//registry.npmjs.org/:_authToken=$NPM_API_TOKEN" >> ~/.npmrc
           npm publish --access public
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_API_TOKEN: ${{ secrets.NPM_API_TOKEN }}
