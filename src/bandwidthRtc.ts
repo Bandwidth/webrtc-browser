@@ -213,8 +213,9 @@ class BandwidthRtc {
   private async handleSdpNeededEvent(sdpRequest: SdpRequest) {
     const endpointId = sdpRequest.endpointId;
     const alias = sdpRequest.alias;
+    const participantId = sdpRequest.participantId;
     let peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
-    this.setupNewPeerConnection(peerConnection, endpointId, sdpRequest.mediaTypes, alias);
+    this.setupNewPeerConnection(peerConnection, endpointId, sdpRequest.mediaTypes, alias, participantId);
 
     this.remotePeerConnections.set(endpointId, peerConnection);
 
@@ -270,7 +271,7 @@ class BandwidthRtc {
     }
   }
 
-  private setupNewPeerConnection(peerConnection: RTCPeerConnection, endpointId: string, mediaTypes: MediaType[], alias?: string): void {
+  private setupNewPeerConnection(peerConnection: RTCPeerConnection, endpointId: string, mediaTypes: MediaType[], alias?: string, participantId?: string): void {
     peerConnection.onconnectionstatechange = (event: Event) => {
       const peerConnection = event.target as RTCPeerConnection;
       const connectionState = peerConnection.connectionState;
@@ -305,6 +306,7 @@ class BandwidthRtc {
           mediaStream: event.streams[0],
           mediaTypes: mediaTypes,
           alias: alias,
+          participantId: participantId,
         });
       }
 

@@ -1,0 +1,21 @@
+name: Unit Tests
+
+on:
+  push
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          ref: refs/heads/master
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+          check-latest: true
+      - name: npm install
+        run: npm install
+      - name: npm test
+        run: npm test

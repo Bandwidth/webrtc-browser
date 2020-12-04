@@ -6,7 +6,9 @@
   "scripts": {
     "build": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc",
     "test": "jest src --coverage",
-    "test:debug": "node --inspect node_modules/.bin/jest --runInBand --coverage src"
+    "test:debug": "node --inspect node_modules/.bin/jest --runInBand --coverage src",
+    "preversion": "npm test",
+    "version": "npm run build"
   },
   "repository": {
     "type": "git",
