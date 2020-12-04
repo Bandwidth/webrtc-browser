@@ -21,7 +21,7 @@ jobs:
         run: npm install
       - name: version and publish
         run: |
-          export MAJOR_MINOR_SEMVER=${GITHUB_REF:11}
+          export MAJOR_MINOR_SEMVER=${GITHUB_REF:10}
           echo "MAJOR_MINOR_SEMVER=${MAJOR_MINOR_SEMVER}"
 
           git config user.name $GITHUB_ACTOR
