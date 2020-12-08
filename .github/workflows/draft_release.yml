@@ -7,7 +7,7 @@ on:
       - master
 
 jobs:
-  deploy-staging:
+  draft-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
