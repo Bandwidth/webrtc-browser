@@ -130,6 +130,28 @@ class BandwidthRtc {
     }
   }
 
+  getVideoInputs() {
+    return this.getMediaDevices("videoinput");
+  }
+
+  getAudioInputs() {
+    return this.getMediaDevices("audioinput");
+  }
+
+  getAudioOutputs() {
+    return this.getMediaDevices("audiooutput");
+  }
+
+  async getMediaDevices(filter?: string) {
+    let devices = await navigator.mediaDevices.enumerateDevices();
+
+    if (filter) {
+      devices = devices.filter((device) => device.kind === filter);
+    }
+
+    return devices;
+  }
+
   sendDtmf(tone: string, streamId?: string) {
     if (streamId) {
       this.localDtmfSenders.get(streamId)?.sendDtmf(tone);
