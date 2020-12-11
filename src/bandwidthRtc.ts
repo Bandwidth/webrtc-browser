@@ -130,19 +130,32 @@ class BandwidthRtc {
     }
   }
 
-  getVideoInputs() {
+  /**
+   * Returns an array of available video input devices
+   */
+  getVideoInputs(): Promise<MediaDeviceInfo[]> {
     return this.getMediaDevices("videoinput");
   }
 
-  getAudioInputs() {
+  /**
+   * Returns an array of available audio input devices
+   */
+  getAudioInputs(): Promise<MediaDeviceInfo[]> {
     return this.getMediaDevices("audioinput");
   }
 
-  getAudioOutputs() {
+  /**
+   * Returns an array of available audio output devices
+   */
+  getAudioOutputs(): Promise<MediaDeviceInfo[]> {
     return this.getMediaDevices("audiooutput");
   }
 
-  async getMediaDevices(filter?: string) {
+  /**
+   * Returns an array of available media devices, optionally filtered by device kind
+   * @param filter Device kind to filter on
+   */
+  async getMediaDevices(filter?: string): Promise<MediaDeviceInfo[]> {
     let devices = await navigator.mediaDevices.enumerateDevices();
 
     if (filter) {
