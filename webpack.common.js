@@ -2,26 +2,25 @@ const path = require("path");
 
 module.exports = {
   entry: {
-    BandwidthRtc: "./src/webpackIndex.ts",
+    BandwidthRtc: "./src/webpackIndex.ts"
   },
-  devtool: "inline-source-map",
   module: {
     rules: [
       {
         test: /\.tsx?$/,
         use: "ts-loader",
-        exclude: /node_modules/,
-      },
-    ],
+        exclude: /node_modules/
+      }
+    ]
   },
   resolve: {
-    extensions: [".tsx", ".ts", ".js"],
+    extensions: [".tsx", ".ts", ".js"]
   },
   plugins: [],
   output: {
     filename: "[name].bundle.js",
     path: path.resolve(__dirname, "dist"),
     library: "BandwidthRtc",
-    libraryTarget: "var",
-  },
+    libraryTarget: "var"
+  }
 };
