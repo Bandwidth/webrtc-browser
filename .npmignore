@@ -1,2 +1,5 @@
 .github/
 coverage/
+BandwidthRtc.bundle.js
+*.iml
+.idea/

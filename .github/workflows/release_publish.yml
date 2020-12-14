@@ -19,7 +19,7 @@ jobs:
           check-latest: true
       - name: npm install
         run: npm install
-      - name: version and publish
+      - name: npm version and publish
         run: |
           export MAJOR_MINOR_SEMVER=${GITHUB_REF:10}
           echo "MAJOR_MINOR_SEMVER=${MAJOR_MINOR_SEMVER}"
@@ -36,3 +36,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_API_TOKEN: ${{ secrets.NPM_API_TOKEN }}
+      - name: Upload Standalone Bundle Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./dist/BandwidthRtc.bundle.js
+          asset_name: BandwidthRtc.bundle.js
+          asset_content_type: application/javascript
+

@@ -4,7 +4,6 @@ import {
   EndpointRemovedEvent,
   IceCandidateEvent,
   MediaType,
-  MessageReceivedEvent,
   RtcAuthParams,
   RtcOptions,
   RtcStream,

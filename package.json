@@ -4,7 +4,8 @@
   "description": "SDK for Bandwidth WebRTC Browser Applications",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc",
+    "build": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc && webpack --config webpack.prod.js",
+    "build:dev": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc && webpack --config webpack.dev.js",
     "test": "jest src --coverage",
     "test:debug": "node --inspect node_modules/.bin/jest --runInBand --coverage src",
     "preversion": "npm test",
@@ -30,9 +31,13 @@
     "babel-jest": "^25.1.0",
     "jest": "^25.1.0",
     "prettier": "^2.0.2",
+    "ts-loader": "^8.0.3",
     "ts-node": "8.6.2",
     "typedoc": "^0.16.9",
-    "typescript": "3.7.5"
+    "typescript": "3.7.5",
+    "webpack": "^4.44.2",
+    "webpack-cli": "^4.2.0",
+    "webpack-merge": "^5.7.0"
   },
   "dependencies": {
     "@types/uuid": "^8.3.0",
