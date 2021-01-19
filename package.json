@@ -6,8 +6,8 @@
   "scripts": {
     "build": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc && webpack --config webpack.prod.js",
     "build:dev": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc && webpack --config webpack.dev.js",
-    "test": "jest src --coverage",
-    "test:debug": "node --inspect node_modules/.bin/jest --runInBand --coverage src",
+    "test": "prettier --check . && jest src --coverage",
+    "test:debug": "prettier --check . && node --inspect node_modules/.bin/jest --runInBand --coverage src",
     "preversion": "npm test",
     "version": "npm run build"
   },
