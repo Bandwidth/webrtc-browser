@@ -61,5 +61,5 @@
     // "emitDecoratorMetadata": true,         /* Enables experimental support for emitting type metadata for decorators. */
     "skipLibCheck": true
   },
-  "exclude": ["src/bandwidthRtc.test.ts"]
+  "exclude": ["src/v2/bandwidthRtc.test.ts"]
 }

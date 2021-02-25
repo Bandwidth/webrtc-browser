@@ -1,8 +1,10 @@
-const sdkVersion = require("../package.json").version;
+const sdkVersion = require("../../package.json").version;
 import { v4 as uuid } from "uuid";
 import { EventEmitter } from "events";
 import { Client as JsonRpcClient } from "rpc-websockets";
-import { MediaAggregationType, RtcAuthParams, RtcOptions, MediaType, SdpRequest, SdpResponse } from "./types";
+import logger from "../logging";
+import { RtcAuthParams, RtcOptions } from "../types";
+import { PublishSdpAnswer, PublishMetadata } from "./types";
 
 class Signaling extends EventEmitter {
   private defaultWebsocketUrl: string = "wss://device.webrtc.bandwidth.com";
@@ -14,7 +16,7 @@ class Signaling extends EventEmitter {
   Signaling() {}
 
   connect(authParams: RtcAuthParams, options?: RtcOptions) {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       let rtcOptions: RtcOptions = {
         websocketUrl: this.defaultWebsocketUrl,
       };
@@ -22,16 +24,19 @@ class Signaling extends EventEmitter {
       if (options) {
         rtcOptions = { ...rtcOptions, ...options };
       }
-      const websocketUrl = `${rtcOptions.websocketUrl}/v2/?token=${authParams.deviceToken}&sdkVersion=${sdkVersion}&uniqueId=${this.uniqueDeviceId}`;
+      const websocketUrl = `${rtcOptions.websocketUrl}/v3/?token=${authParams.deviceToken}&client=browser&sdkVersion=${sdkVersion}&uniqueId=${this.uniqueDeviceId}`;
+      logger.debug(`Connecting to ${websocketUrl}`);
       const ws = new JsonRpcClient(websocketUrl, {
         max_reconnects: 0, // Unlimited
       });
       this.ws = ws;
-      ws.addListener("sdpNeeded", (event) => this.emit("sdpNeeded", event));
-      ws.addListener("addIceCandidate", (event) => this.emit("addIceCandidate", event));
-      ws.addListener("endpointRemoved", (event) => this.emit("endpointRemoved", event));
+
+      ws.on("sdpOffer", (event) => {
+        this.emit("sdpOffer", event);
+      });
 
       ws.on("open", async () => {
+        logger.debug("Websocket open");
         window.addEventListener("unload", (event) => {
           this.disconnect();
         });
@@ -42,16 +47,19 @@ class Signaling extends EventEmitter {
         this.pingInterval = setInterval(() => {
           ws.call("ping", {});
         }, 300000);
+        logger.debug("Websocket ready");
         resolve();
       });
 
       ws.on("error", (error) => {
+        logger.error(`Websocket error: ${error}`);
         if (this.pingInterval) {
           clearInterval(this.pingInterval);
         }
       });
 
       ws.on("close", (code) => {
+        logger.debug(`Websocket closed: ${code}`);
         if (this.pingInterval) {
           clearInterval(this.pingInterval);
         }
@@ -60,6 +68,7 @@ class Signaling extends EventEmitter {
   }
 
   disconnect() {
+    logger.debug("Disconnecting websocket");
     if (this.ws) {
       this.ws.notify("leave");
       this.ws.removeAllListeners();
@@ -71,51 +80,25 @@ class Signaling extends EventEmitter {
     }
   }
 
-  requestToPublish(mediaTypes: MediaType[], alias?: string): Promise<SdpRequest> {
-    let params: object;
-    if (alias) {
-      params = {
-        mediaTypes: mediaTypes,
-        alias: alias,
-      };
-    } else {
-      params = {
-        mediaTypes: mediaTypes,
-      };
-    }
-    return this.ws?.call("requestToPublish", params) as Promise<SdpRequest>;
-  }
-
-  offerSdp(sdpOffer: string, endpointId: string): Promise<SdpResponse> {
+  offerSdp(sdpOffer: string, metadata: PublishMetadata): Promise<PublishSdpAnswer> {
+    logger.debug(`Calling "offerSdp"`, { sdpOffer: sdpOffer, mediaMetadata: metadata });
     return this.ws?.call("offerSdp", {
       sdpOffer: sdpOffer,
-      endpointId: endpointId,
-    }) as Promise<SdpResponse>;
+      mediaMetadata: metadata,
+    }) as Promise<PublishSdpAnswer>;
   }
 
-  sendIceCandidate(endpointId: string, candidate: RTCIceCandidate | null) {
-    if (candidate && candidate.sdpMid && candidate.sdpMLineIndex != null && !candidate.candidate.includes("host")) {
-      let params = {
-        endpointId: endpointId,
-        candidate: candidate.candidate,
-        sdpMid: candidate.sdpMid,
-        sdpMLineIndex: candidate.sdpMLineIndex,
-      };
-      this.ws?.notify("addIceCandidate", params);
-    }
+  answerSdp(sdpAnswer: string): Promise<void> {
+    logger.debug(`Calling "answerSdp"`, { sdpAnswer: sdpAnswer });
+    return this.ws?.call("answerSdp", {
+      sdpAnswer: sdpAnswer,
+    }) as Promise<void>;
   }
 
-  unpublish(endpointId: string) {
-    this.ws?.notify("unpublish", {
-      endpointId: endpointId,
-    });
-  }
-
-  private setMediaPreferences(sendRecv = false, aggregationType = MediaAggregationType.NONE): Promise<{}> {
+  private setMediaPreferences(): Promise<{}> {
+    logger.debug(`Calling "setMediaPreferences"`, { protocol: "WEBRTC" });
     return this.ws?.call("setMediaPreferences", {
-      sendRecv: sendRecv,
-      aggregationType: aggregationType,
-      protocol: "WEB_RTC",
+      protocol: "WEBRTC",
     }) as Promise<{}>;
   }
 }

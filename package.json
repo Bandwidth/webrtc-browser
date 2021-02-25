@@ -40,8 +40,11 @@
     "webpack-merge": "^5.7.0"
   },
   "dependencies": {
+    "@types/sdp-transform": "^2.4.4",
     "@types/uuid": "^8.3.0",
+    "jwt-decode": "^3.1.2",
     "rpc-websockets": "^5.0.9",
+    "sdp-transform": "^2.14.1",
     "uuid": "^8.3.0",
     "webrtc-adapter": "^7.6.2"
   }

@@ -59,4 +59,13 @@ export interface MessageReceivedEvent {
   message: string;
 }
 
+export interface JwtPayload {
+  a: string;
+  p: string;
+  v: string;
+  exp: string;
+  tid?: string;
+  iss?: string;
+}
+
 export class SdpOfferRejectedError extends Error {}
