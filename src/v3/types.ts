@@ -5,7 +5,7 @@ export interface SubscribeSdpOffer {
   sdpRevision: number;
   endpointId: string;
   streamMetadata: {
-    [streamId: string]: SubscribedStreamMetadata;
+    [streamId: string]: StreamMetadata;
   };
 }
 
@@ -13,26 +13,22 @@ export interface PublishSdpAnswer {
   sdpAnswer: string;
   endpointId: string;
   streamMetadata: {
-    [streamId: string]: SubscribedStreamMetadata;
+    [streamId: string]: StreamMetadata;
   };
 }
 
-export interface SubscribedStreamMetadata {
+export interface StreamMetadata {
   endpointId: string;
   mediaTypes: MediaType[];
-  alias: string;
-  participantId: string;
+  alias?: string;
+  participantId?: string;
 }
 
 export interface PublishedStream {
   mediaStream: MediaStream;
-  metadata: PublishedStreamMetadata;
+  metadata: StreamMetadata;
 }
 
 export interface PublishMetadata {
-  [streamId: string]: PublishedStreamMetadata;
-}
-
-export interface PublishedStreamMetadata {
-  alias?: string;
+  [streamId: string]: StreamMetadata;
 }

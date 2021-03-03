@@ -31,3 +31,5 @@ export interface RtcStream {
   alias?: string;
   participantId?: string;
 }
+
+export class BandwidthRtcError extends Error {}
