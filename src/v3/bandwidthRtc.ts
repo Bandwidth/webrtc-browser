@@ -53,6 +53,10 @@ class BandwidthRtc {
 
     this.setMicEnabled = this.setMicEnabled.bind(this);
     this.setCameraEnabled = this.setCameraEnabled.bind(this);
+
+    this.setupPublishingPeerConnection = this.setupPublishingPeerConnection.bind(this);
+    this.setupSubscribingPeerConnection = this.setupSubscribingPeerConnection.bind(this);
+    this.setupNewPeerConnection = this.setupNewPeerConnection.bind(this);
   }
 
   /**
@@ -331,6 +335,7 @@ class BandwidthRtc {
   }
 
   private setupPublishingPeerConnection(): RTCPeerConnection {
+    logger.debug("Setting up publishing RTCPeerConnection");
     this.publishingPeerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
 
     this.setupNewPeerConnection(this.publishingPeerConnection, this.setupPublishingPeerConnection);
@@ -347,6 +352,7 @@ class BandwidthRtc {
   }
 
   private setupSubscribingPeerConnection(): RTCPeerConnection {
+    logger.debug("Setting up subscribing RTCPeerConnection");
     this.subscribingPeerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
     this.subscribingPeerConnectionSdpRevision = 0;
 
@@ -416,22 +422,26 @@ class BandwidthRtc {
   private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction): void {
     peerConnection.onconnectionstatechange = (event: Event) => {
       const pc = event.target as RTCPeerConnection;
+      logger.debug("onconnectionstatechange", pc.connectionState, pc);
       const connectionState = pc.connectionState;
-      if (connectionState === "disconnected" || connectionState === "failed" || connectionState === "closed") {
-        onPeerClosed();
+      if (connectionState === "disconnected") {
+        logger.warn("Peer disconnected, connection may be reestablished");
+      }
+      if (connectionState === "failed" || connectionState === "closed") {
+        logger.warn("Connection lost, refresh to retry");
+        // TODO: make automatic reconnection work
+        // onPeerClosed();
       }
     };
 
-    peerConnection.onconnectionstatechange = (event: Event) => {
-      logger.debug("onconnectionstatechange", event.target);
-    };
-
     peerConnection.oniceconnectionstatechange = (event) => {
-      logger.debug("oniceconnectionstatechange", event.target);
+      const pc = event.target as RTCPeerConnection;
+      logger.debug("oniceconnectionstatechange", pc.iceConnectionState, pc);
     };
 
     peerConnection.onicegatheringstatechange = (event) => {
-      logger.debug("onicegatheringstatechange", event.target);
+      const pc = event.target as RTCPeerConnection;
+      logger.debug("onicegatheringstatechange", pc.iceGatheringState, pc);
     };
 
     peerConnection.onnegotiationneeded = (event) => {
@@ -439,11 +449,8 @@ class BandwidthRtc {
     };
 
     peerConnection.onsignalingstatechange = (event) => {
-      logger.debug("onsignalingstatechange", event.target);
-    };
-
-    peerConnection.onicecandidate = (event) => {
-      logger.debug("onicecandidate", event.target);
+      const pc = event.target as RTCPeerConnection;
+      logger.debug("onsignalingstatechange", pc.signalingState, pc);
     };
 
     peerConnection.ontrack = (event: RTCTrackEvent) => {

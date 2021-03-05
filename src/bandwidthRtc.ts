@@ -114,8 +114,6 @@ class BandwidthRtc {
       });
     }
 
-    console.log("unpublish streams", ...streams);
-
     // @ts-ignore
     return this.delegate.unpublish(...streams);
   }
