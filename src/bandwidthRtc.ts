@@ -1,4 +1,6 @@
-require("webrtc-adapter");
+if (globalThis.window) {
+  require("webrtc-adapter");
+}
 import jwt_decode from "jwt-decode";
 
 import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "./types";
@@ -6,6 +8,7 @@ import logger, { LogLevel } from "./logging";
 
 import { default as BandwidthRtcV2 } from "./v2/bandwidthRtc";
 import { default as BandwidthRtcV3 } from "./v3/bandwidthRtc";
+import { CodecPreferences } from "./v3/types";
 
 class BandwidthRtc {
   // Event handlers
@@ -28,7 +31,7 @@ class BandwidthRtc {
    * @param authParams connection credentials
    * @param options additional connection options; usually unnecessary
    */
-  async connect(authParams: RtcAuthParams, options?: RtcOptions) {
+  async connect(authParams: RtcAuthParams, options?: RtcOptions): Promise<BandwidthRtcV2 | BandwidthRtcV3> {
     const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
     if (jwtPayload.v?.toLowerCase() === "v3") {
       logger.info("Using device API version 3");
@@ -46,7 +49,8 @@ class BandwidthRtc {
       this.delegate.onStreamUnavailable(this.streamUnavailableHandler);
     }
 
-    return this.delegate.connect(authParams, options);
+    await this.delegate.connect(authParams, options);
+    return this.delegate;
   }
 
   /**
@@ -88,12 +92,17 @@ class BandwidthRtc {
    * @param audioLevelChangeHandler handler that can be called when the audio level of the published stream changes (optional)
    * @param alias stream alias/tag that will be included in subscription events and billing records, should not be PII (optional)
    */
-  async publish(input?: MediaStreamConstraints | MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream> {
+  async publish(
+    input?: MediaStreamConstraints | MediaStream,
+    audioLevelChangeHandler?: AudioLevelChangeHandler,
+    alias?: string,
+    codecPreferences?: CodecPreferences
+  ): Promise<RtcStream> {
     if (!this.delegate) {
       throw new BandwidthRtcError("You must call 'connect' before 'publish'");
     }
 
-    return this.delegate.publish(input, audioLevelChangeHandler, alias);
+    return this.delegate.publish(input, audioLevelChangeHandler, alias, codecPreferences);
   }
 
   /**

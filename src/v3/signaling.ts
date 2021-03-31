@@ -37,9 +37,11 @@ class Signaling extends EventEmitter {
 
       ws.on("open", async () => {
         logger.debug("Websocket open");
-        window.addEventListener("unload", (event) => {
-          this.disconnect();
-        });
+        if (globalThis.addEventListener) {
+          globalThis.addEventListener("unload", (event) => {
+            this.disconnect();
+          });
+        }
         if (!this.hasSetMediaPreferences) {
           await this.setMediaPreferences();
           this.hasSetMediaPreferences = true;

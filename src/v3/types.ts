@@ -32,3 +32,8 @@ export interface PublishedStream {
 export interface PublishMetadata {
   [streamId: string]: StreamMetadata;
 }
+
+export interface CodecPreferences {
+  audio?: RTCRtpCodecCapability[];
+  video?: RTCRtpCodecCapability[];
+}

@@ -25,7 +25,7 @@ class Logger extends EventEmitter {
 
   log(level: LogLevel, ...args: any) {
     const now = new Date(Date.now()).toISOString();
-    if (this._level >= Level[level]) {
+    if (this._level >= Level[level] && console) {
       // @ts-ignore
       console[level](now, ...args);
     }
