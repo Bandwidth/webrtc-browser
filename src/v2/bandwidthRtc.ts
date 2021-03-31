@@ -1,3 +1,6 @@
+if (globalThis.window) {
+  require("webrtc-adapter");
+}
 import { AudioLevelChangeHandler, MediaType, RtcAuthParams, RtcOptions, RtcStream } from "../types";
 import { EndpointRemovedEvent, IceCandidateEvent, SdpRequest, SdpOfferRejectedError } from "./types";
 import Signaling from "./signaling";

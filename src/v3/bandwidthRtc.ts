@@ -1,3 +1,6 @@
+if (globalThis.window) {
+  require("webrtc-adapter");
+}
 import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
