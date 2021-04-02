@@ -6,8 +6,8 @@ import jwt_decode from "jwt-decode";
 import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "./types";
 import logger, { LogLevel } from "./logging";
 
-import { default as BandwidthRtcV2 } from "./v2/bandwidthRtc";
-import { default as BandwidthRtcV3 } from "./v3/bandwidthRtc";
+import { BandwidthRtc as BandwidthRtcV2 } from "./v2/bandwidthRtc";
+import { BandwidthRtc as BandwidthRtcV3 } from "./v3/bandwidthRtc";
 import { CodecPreferences } from "./v3/types";
 
 class BandwidthRtc {
@@ -31,7 +31,7 @@ class BandwidthRtc {
    * @param authParams connection credentials
    * @param options additional connection options; usually unnecessary
    */
-  async connect(authParams: RtcAuthParams, options?: RtcOptions): Promise<BandwidthRtcV2 | BandwidthRtcV3> {
+  async connect(authParams: RtcAuthParams, options?: RtcOptions) {
     const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
     if (jwtPayload.v?.toLowerCase() === "v3") {
       logger.info("Using device API version 3");
@@ -49,8 +49,7 @@ class BandwidthRtc {
       this.delegate.onStreamUnavailable(this.streamUnavailableHandler);
     }
 
-    await this.delegate.connect(authParams, options);
-    return this.delegate;
+    return this.delegate.connect(authParams, options);
   }
 
   /**

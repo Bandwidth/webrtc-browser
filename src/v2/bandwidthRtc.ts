@@ -11,7 +11,7 @@ const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [],
 };
 
-class BandwidthRtc {
+export class BandwidthRtc {
   // Signaling
   private signaling: Signaling = new Signaling();
 
@@ -370,5 +370,3 @@ class BandwidthRtc {
     }
   }
 }
-
-export default BandwidthRtc;

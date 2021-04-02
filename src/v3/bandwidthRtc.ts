@@ -18,7 +18,7 @@ const RTC_CONFIGURATION: RTCConfiguration = {
   rtcpMuxPolicy: "require",
 };
 
-class BandwidthRtc {
+export class BandwidthRtc {
   // Communicates with the Bandwidth WebRTC platform
   private signaling: Signaling = new Signaling();
 
@@ -434,20 +434,16 @@ class BandwidthRtc {
 
   private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction): void {
     peerConnection.onconnectionstatechange = (event: Event) => {
-      try {
-        const pc = event.target as RTCPeerConnection;
-        logger.debug("onconnectionstatechange", pc.connectionState, pc);
-        const connectionState = pc.connectionState;
-        if (connectionState === "disconnected") {
-          logger.warn("Peer disconnected, connection may be reestablished");
-        }
-        if (connectionState === "failed" || connectionState === "closed") {
-          logger.warn("Connection lost, refresh to retry");
-          // TODO: make automatic reconnection work
-          // onPeerClosed();
-        }
-      } catch (error) {
-        // logger.warn("onconnectionstatechange error", error);
+      const pc = event.target as RTCPeerConnection;
+      logger.debug("onconnectionstatechange", pc.connectionState, pc);
+      const connectionState = pc.connectionState;
+      if (connectionState === "disconnected") {
+        logger.warn("Peer disconnected, connection may be reestablished");
+      }
+      if (connectionState === "failed" || connectionState === "closed") {
+        logger.warn("Connection lost, refresh to retry");
+        // TODO: make automatic reconnection work
+        // onPeerClosed();
       }
     };
 
@@ -542,5 +538,3 @@ class BandwidthRtc {
     return input instanceof MediaStream;
   }
 }
-
-export default BandwidthRtc;
