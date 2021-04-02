@@ -1,4 +1,6 @@
-require("webrtc-adapter");
+if (globalThis.window) {
+  require("webrtc-adapter");
+}
 import { AudioLevelChangeHandler, MediaType, RtcAuthParams, RtcOptions, RtcStream } from "../types";
 import { EndpointRemovedEvent, IceCandidateEvent, SdpRequest, SdpOfferRejectedError } from "./types";
 import Signaling from "./signaling";
@@ -9,7 +11,7 @@ const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [],
 };
 
-class BandwidthRtc {
+export class BandwidthRtc {
   // Signaling
   private signaling: Signaling = new Signaling();
 
@@ -368,5 +370,3 @@ class BandwidthRtc {
     }
   }
 }
-
-export default BandwidthRtc;

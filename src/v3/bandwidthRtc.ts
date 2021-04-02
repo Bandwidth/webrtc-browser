@@ -1,9 +1,11 @@
-require("webrtc-adapter");
+if (globalThis.window) {
+  require("webrtc-adapter");
+}
 import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
 import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "../types";
-import { PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer } from "./types";
+import { PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer, CodecPreferences } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
 import DtmfSender from "../dtmfSender";
@@ -16,7 +18,7 @@ const RTC_CONFIGURATION: RTCConfiguration = {
   rtcpMuxPolicy: "require",
 };
 
-class BandwidthRtc {
+export class BandwidthRtc {
   // Communicates with the Bandwidth WebRTC platform
   private signaling: Signaling = new Signaling();
 
@@ -105,10 +107,16 @@ class BandwidthRtc {
    * @param audioLevelChangeHandler handler that can be called when the audio level of the published stream changes (optional)
    * @param alias stream alias/tag that will be included in subscription events and billing records, should not be PII (optional)
    */
-  async publish(input?: MediaStreamConstraints | MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream> {
+  async publish(
+    input?: MediaStreamConstraints | MediaStream,
+    audioLevelChangeHandler?: AudioLevelChangeHandler,
+    alias?: string,
+    codecPreferences?: CodecPreferences
+  ): Promise<RtcStream> {
     // Cast or create a MediaStream from the input
     let mediaStream: MediaStream;
-    if (input instanceof MediaStream) {
+    if (input && this.isMediaStream(input)) {
+      // @ts-ignore
       mediaStream = input;
     } else {
       let constraints: MediaStreamConstraints = { audio: true, video: true };
@@ -124,7 +132,7 @@ class BandwidthRtc {
     }
 
     logger.info(`Publishing mediaStream ${mediaStream.id} (${alias})`);
-    this.addStreamToPublishingPeerConnection(mediaStream);
+    this.addStreamToPublishingPeerConnection(mediaStream, codecPreferences);
 
     if (audioLevelChangeHandler) {
       const audioLevelDetector = new AudioLevelDetector({
@@ -155,7 +163,7 @@ class BandwidthRtc {
    * @param streams streams to unpublish; leave empty to unpublish all streams
    */
   async unpublish(...streams: RtcStream[] | string[]) {
-    logger.info(`Unpublishing media streams ${streams}`);
+    logger.info("Unpublishing media streams", streams);
     let publishedStreams: PublishedStream[] = [];
     for (let stream of streams) {
       if (typeof stream === "string") {
@@ -177,7 +185,7 @@ class BandwidthRtc {
     }
 
     this.cleanupPublishedStreams(...publishedStreams);
-    this.offerPublishSdp();
+    await this.offerPublishSdp();
   }
 
   /**
@@ -302,8 +310,6 @@ class BandwidthRtc {
         return;
       }
 
-      this.subscribingPeerConnectionSdpRevision = subscribeSdpOffer.sdpRevision;
-      logger.debug(`set current SDP revision to ${this.subscribingPeerConnectionSdpRevision}`);
       const remoteSdpOffer = subscribeSdpOffer.sdpOffer;
 
       this.subscribedStreams = new Map(Object.entries(subscribeSdpOffer.streamMetadata));
@@ -313,10 +319,14 @@ class BandwidthRtc {
         this.setupSubscribingPeerConnection();
       }
 
-      await this.subscribingPeerConnection!.setRemoteDescription({
-        type: "offer",
-        sdp: remoteSdpOffer,
-      });
+      try {
+        await this.subscribingPeerConnection!.setRemoteDescription({
+          type: "offer",
+          sdp: remoteSdpOffer,
+        });
+      } catch (err) {
+        throw new BandwidthRtcError(err);
+      }
 
       let localSdpAnswer = await this.subscribingPeerConnection!.createAnswer();
       if (!localSdpAnswer.sdp) {
@@ -331,12 +341,15 @@ class BandwidthRtc {
 
       await this.subscribingPeerConnection!.setLocalDescription(localSdpAnswer);
       await this.signaling.answerSdp(localSdpAnswer.sdp);
+
+      this.subscribingPeerConnectionSdpRevision = subscribeSdpOffer.sdpRevision;
+      logger.debug(`set current SDP revision to ${this.subscribingPeerConnectionSdpRevision}`);
     });
   }
 
   private setupPublishingPeerConnection(): RTCPeerConnection {
     logger.debug("Setting up publishing RTCPeerConnection");
-    this.publishingPeerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
+    this.publishingPeerConnection = this.createPeerConnection();
 
     this.setupNewPeerConnection(this.publishingPeerConnection, this.setupPublishingPeerConnection);
 
@@ -353,7 +366,7 @@ class BandwidthRtc {
 
   private setupSubscribingPeerConnection(): RTCPeerConnection {
     logger.debug("Setting up subscribing RTCPeerConnection");
-    this.subscribingPeerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
+    this.subscribingPeerConnection = this.createPeerConnection();
     this.subscribingPeerConnectionSdpRevision = 0;
 
     this.setupNewPeerConnection(this.subscribingPeerConnection, this.setupSubscribingPeerConnection);
@@ -471,16 +484,19 @@ class BandwidthRtc {
     };
   }
 
-  private addStreamToPublishingPeerConnection(mediaStream: MediaStream) {
+  private addStreamToPublishingPeerConnection(mediaStream: MediaStream, codecPreferences?: CodecPreferences) {
     mediaStream.getTracks().forEach((track) => {
       const transceiver = this.publishingPeerConnection!.addTransceiver(track, {
         direction: "sendonly",
         streams: [mediaStream],
       });
 
-      // Inject DTMF into one audio track in the stream
-      if (track.kind === "audio" && !this.localDtmfSenders.has(mediaStream.id)) {
-        this.localDtmfSenders.set(mediaStream.id, new DtmfSender(transceiver.sender));
+      if (codecPreferences) {
+        if (track.kind === "audio" && codecPreferences.audio) {
+          transceiver.setCodecPreferences(codecPreferences.audio);
+        } else if (track.kind === "video" && codecPreferences.video) {
+          transceiver.setCodecPreferences(codecPreferences.video);
+        }
       }
     });
   }
@@ -505,6 +521,20 @@ class BandwidthRtc {
       this.publishedStreams.delete(stream.mediaStream.id);
     }
   }
-}
 
-export default BandwidthRtc;
+  /**
+   * Can be overridden in environments where RTCPeerConnection is not natively present
+   * @returns new RTCPeerConnection
+   */
+  private createPeerConnection() {
+    return new RTCPeerConnection(RTC_CONFIGURATION);
+  }
+
+  /**
+   * Can be overridden in environments where MediaStream is not natively present
+   * @returns true if input is a MediaStream, false otherwise
+   */
+  private isMediaStream(input: MediaStreamConstraints | MediaStream) {
+    return input instanceof MediaStream;
+  }
+}

@@ -1,11 +1,14 @@
-require("webrtc-adapter");
+if (globalThis.window) {
+  require("webrtc-adapter");
+}
 import jwt_decode from "jwt-decode";
 
 import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "./types";
 import logger, { LogLevel } from "./logging";
 
-import { default as BandwidthRtcV2 } from "./v2/bandwidthRtc";
-import { default as BandwidthRtcV3 } from "./v3/bandwidthRtc";
+import { BandwidthRtc as BandwidthRtcV2 } from "./v2/bandwidthRtc";
+import { BandwidthRtc as BandwidthRtcV3 } from "./v3/bandwidthRtc";
+import { CodecPreferences } from "./v3/types";
 
 class BandwidthRtc {
   // Event handlers
@@ -84,16 +87,22 @@ class BandwidthRtc {
    * Publish media to the Bandwidth WebRTC platform
    *
    * This function can publish an existing MediaStream, or it can create and publish a new media stream from MediaStreamConstraints
-   * @param input existing media or specific constraints to publish; optional, defaults to basic audio/video constraints
+   * @param input existing media or specific constraints to publish (optional, defaults to basic audio/video constraints)
    * @param audioLevelChangeHandler handler that can be called when the audio level of the published stream changes (optional)
    * @param alias stream alias/tag that will be included in subscription events and billing records, should not be PII (optional)
+   * @param codecPreferences preferred audio and video codecs (optional, should almost never be needed)
    */
-  async publish(input?: MediaStreamConstraints | MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream> {
+  async publish(
+    input?: MediaStreamConstraints | MediaStream,
+    audioLevelChangeHandler?: AudioLevelChangeHandler,
+    alias?: string,
+    codecPreferences?: CodecPreferences
+  ): Promise<RtcStream> {
     if (!this.delegate) {
       throw new BandwidthRtcError("You must call 'connect' before 'publish'");
     }
 
-    return this.delegate.publish(input, audioLevelChangeHandler, alias);
+    return this.delegate.publish(input, audioLevelChangeHandler, alias, codecPreferences);
   }
 
   /**
