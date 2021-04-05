@@ -433,37 +433,67 @@ export class BandwidthRtc {
   }
 
   private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction): void {
-    peerConnection.onconnectionstatechange = (event: Event) => {
-      const pc = event.target as RTCPeerConnection;
-      logger.debug("onconnectionstatechange", pc.connectionState, pc);
-      const connectionState = pc.connectionState;
-      if (connectionState === "disconnected") {
-        logger.warn("Peer disconnected, connection may be reestablished");
-      }
-      if (connectionState === "failed" || connectionState === "closed") {
-        logger.warn("Connection lost, refresh to retry");
-        // TODO: make automatic reconnection work
-        // onPeerClosed();
+    peerConnection.onconnectionstatechange = (event) => {
+      try {
+        const pc = event.target as RTCPeerConnection;
+        logger.debug("onconnectionstatechange", pc.connectionState, pc);
+        const connectionState = pc.connectionState;
+        if (connectionState === "disconnected") {
+          logger.warn("Peer disconnected, connection may be reestablished");
+        }
+        if (connectionState === "failed" || connectionState === "closed") {
+          logger.warn("Connection lost, refresh to retry");
+          // TODO: make automatic reconnection work
+          // onPeerClosed();
+        }
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onconnectionstatechange error", err);
+        }
       }
     };
 
     peerConnection.oniceconnectionstatechange = (event) => {
-      const pc = event.target as RTCPeerConnection;
-      logger.debug("oniceconnectionstatechange", pc.iceConnectionState, pc);
+      try {
+        const pc = event.target as RTCPeerConnection;
+        logger.debug("oniceconnectionstatechange", pc.iceConnectionState, pc);
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("oniceconnectionstatechange error", err);
+        }
+      }
     };
 
     peerConnection.onicegatheringstatechange = (event) => {
-      const pc = event.target as RTCPeerConnection;
-      logger.debug("onicegatheringstatechange", pc.iceGatheringState, pc);
+      try {
+        const pc = event.target as RTCPeerConnection;
+        logger.debug("onicegatheringstatechange", pc.iceGatheringState, pc);
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onicegatheringstatechange error", err);
+        }
+      }
     };
 
     peerConnection.onnegotiationneeded = (event) => {
-      logger.debug("onnegotiationneeded", event.target);
+      try {
+        logger.debug("onnegotiationneeded", event.target);
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onnegotiationneeded error", err);
+        }
+      }
     };
 
     peerConnection.onsignalingstatechange = (event) => {
-      const pc = event.target as RTCPeerConnection;
-      logger.debug("onsignalingstatechange", pc.signalingState, pc);
+      try {
+        const pc = event.target as RTCPeerConnection;
+        logger.debug("onsignalingstatechange", pc.signalingState, pc);
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onsignalingstatechange error", err);
+        }
+      }
     };
 
     peerConnection.ontrack = (event: RTCTrackEvent) => {
