@@ -12,6 +12,7 @@ export enum MediaAggregationType {
 export enum MediaType {
   AUDIO = "AUDIO",
   VIDEO = "VIDEO",
+  APPLICATION = "APPLICATION"
 }
 
 export type AudioLevelChangeHandler = { (audioLevel: AudioLevel): void };

@@ -1,10 +1,12 @@
+import {MediaDescription} from "sdp-transform";
+
 if (globalThis.window) {
   require("webrtc-adapter");
 }
 import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
-import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "../types";
+import {AudioLevelChangeHandler, BandwidthRtcError, MediaType, RtcAuthParams, RtcOptions, RtcStream} from "../types";
 import { PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer, CodecPreferences } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
@@ -128,7 +130,7 @@ export class BandwidthRtc {
 
     // Create the publishing RTCPeerConnection if this is the first time publishing
     if (!this.publishingPeerConnection) {
-      this.setupPublishingPeerConnection();
+      await this.setupPublishingPeerConnection();
     }
 
     logger.info(`Publishing mediaStream ${mediaStream.id} (${alias})`);
@@ -153,7 +155,7 @@ export class BandwidthRtc {
     return {
       endpointId: mediaStream.id,
       mediaStream: mediaStream,
-      mediaTypes: remoteStreamMetadata.mediaTypes,
+      mediaTypes: remoteStreamMetadata ? remoteStreamMetadata.mediaTypes : [MediaType.APPLICATION],
       alias: alias,
     };
   }
@@ -320,9 +322,18 @@ export class BandwidthRtc {
       }
 
       try {
+        // Munge the SDP to change the setup from "active" to "actpass"
+        // This unfortunately seems to be required
+        let parsedSdpOffer = sdpTransform.parse(remoteSdpOffer);
+        parsedSdpOffer.media.forEach((media) => {
+          if (!media.direction) {
+            media.setup = "actpass";
+          }
+        });
+        let mungedRemoteSdpOffer = sdpTransform.write(parsedSdpOffer);
         await this.subscribingPeerConnection!.setRemoteDescription({
           type: "offer",
-          sdp: remoteSdpOffer,
+          sdp: mungedRemoteSdpOffer,
         });
       } catch (err) {
         throw new BandwidthRtcError(err);
@@ -336,7 +347,13 @@ export class BandwidthRtc {
       // Munge the SDP to change the setup from "actpass" to "passive"
       // This unfortunately seems to be required
       let parsedSdpAnswer = sdpTransform.parse(localSdpAnswer.sdp!);
-      parsedSdpAnswer.media.forEach((media) => (media.setup = "passive"));
+      parsedSdpAnswer.media.forEach((media) => {
+        if (!media.direction) {
+          media.setup = "passive"; // data
+        } else {
+          media.setup = "passive"
+        }
+      });
       localSdpAnswer.sdp = sdpTransform.write(parsedSdpAnswer);
 
       await this.subscribingPeerConnection!.setLocalDescription(localSdpAnswer);
@@ -347,18 +364,19 @@ export class BandwidthRtc {
     });
   }
 
-  private setupPublishingPeerConnection(): RTCPeerConnection {
+  private async setupPublishingPeerConnection(): Promise<RTCPeerConnection> {
     logger.debug("Setting up publishing RTCPeerConnection");
     this.publishingPeerConnection = this.createPeerConnection();
 
-    this.setupNewPeerConnection(this.publishingPeerConnection, this.setupPublishingPeerConnection);
+    this.setupNewPeerConnection(this.publishingPeerConnection, this.setupPublishingPeerConnection, true);
+    await this.offerPublishSdp();
 
     // (Re)publish any existing media streams
     if (this.publishedStreams.size > 0) {
       this.publishedStreams.forEach((publishedStream) => {
         this.addStreamToPublishingPeerConnection(publishedStream.mediaStream);
       });
-      this.offerPublishSdp();
+      await this.offerPublishSdp();
     }
 
     return this.publishingPeerConnection;
@@ -369,7 +387,7 @@ export class BandwidthRtc {
     this.subscribingPeerConnection = this.createPeerConnection();
     this.subscribingPeerConnectionSdpRevision = 0;
 
-    this.setupNewPeerConnection(this.subscribingPeerConnection, this.setupSubscribingPeerConnection);
+    this.setupNewPeerConnection(this.subscribingPeerConnection, this.setupSubscribingPeerConnection, true);
 
     // Map of streams to tracks, used to deduplicate streamAvailable/streamUnavailable events
     let streamTracks: Map<MediaStream, Set<MediaStreamTrack>> = new Map();
@@ -432,7 +450,31 @@ export class BandwidthRtc {
     return this.subscribingPeerConnection;
   }
 
-  private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction): void {
+  private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction, createDataChannel: boolean): void {
+    if(createDataChannel) {
+      //Create a default data channel
+      let dataChannel = peerConnection.createDataChannel('__default__', {
+        id: 0,
+        negotiated: true,
+        protocol: 'udp'
+      });
+      let intervalGenerateData = setInterval(async () => {
+        try {
+          if (dataChannel.readyState === 'open') {
+            dataChannel.send("WEEEEEE");
+            logger.warn('Sent WEEEEE');
+          } else {
+            logger.warn("datachannel not ready for sending", dataChannel.readyState);
+          }
+        } catch (Error) {
+          clearInterval(intervalGenerateData);
+        }
+      }, 10000);
+      dataChannel.onmessage = function(event) {
+        logger.info("Message:", event.data);
+      }
+    }
+
     peerConnection.onconnectionstatechange = (event: Event) => {
       const pc = event.target as RTCPeerConnection;
       logger.debug("onconnectionstatechange", pc.connectionState, pc);
