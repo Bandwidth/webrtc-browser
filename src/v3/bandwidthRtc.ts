@@ -574,7 +574,6 @@ export class BandwidthRtc {
    * @param streamId Stream ID to format
    */
   private formatMediaStreamId(streamId: string): string {
-    logger.info("Formatting media stream ID");
     if (streamId) {
       return streamId.replace("{", "").replace("}", "").trim();
     } else {
