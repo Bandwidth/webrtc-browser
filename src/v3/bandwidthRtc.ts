@@ -5,7 +5,7 @@ import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
 import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "../types";
-import { PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer, CodecPreferences } from "./types";
+import { CodecPreferences, PublishedStream, PublishMetadata, PublishSdpAnswer, StreamMetadata, SubscribeSdpOffer } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
 import DtmfSender from "../dtmfSender";
@@ -143,7 +143,8 @@ export class BandwidthRtc {
 
     // Perform SDP negotiation with Bandwidth WebRTC
     const remoteSdpAnswer = await this.offerPublishSdp();
-    const remoteStreamMetadata = remoteSdpAnswer.streamMetadata[mediaStream.id];
+    let mediaStreamId: string = this.formatMediaStreamId(mediaStream.id);
+    const remoteStreamMetadata = remoteSdpAnswer.streamMetadata[mediaStreamId];
 
     this.publishedStreams.set(mediaStream.id, {
       mediaStream: mediaStream,
@@ -566,5 +567,18 @@ export class BandwidthRtc {
    */
   private isMediaStream(input: MediaStreamConstraints | MediaStream) {
     return input instanceof MediaStream;
+  }
+
+  /**
+   * Formats the supplied stream ID, removing curly braces that are used by some browsers.
+   * @param streamId Stream ID to format
+   */
+  private formatMediaStreamId(streamId: string): string {
+    logger.info("Formatting media stream ID");
+    if (streamId) {
+      return streamId.replace("{", "").replace("}", "").trim();
+    } else {
+      return streamId;
+    }
   }
 }
