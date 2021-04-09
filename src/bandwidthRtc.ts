@@ -21,6 +21,7 @@ class BandwidthRtc {
   constructor(logLevel?: LogLevel) {
     if (logLevel) {
       this.logLevel = logLevel;
+      logger.level = logLevel;
     }
     this.setMicEnabled = this.setMicEnabled.bind(this);
     this.setCameraEnabled = this.setCameraEnabled.bind(this);

@@ -5,6 +5,7 @@ import { Client as JsonRpcClient } from "rpc-websockets";
 import logger from "../logging";
 import { RtcAuthParams, RtcOptions } from "../types";
 import { PublishSdpAnswer, PublishMetadata } from "./types";
+import { Diagnostics, DiagnosticsBatcher } from "./diagnostics";
 
 class Signaling extends EventEmitter {
   private defaultWebsocketUrl: string = "wss://device.webrtc.bandwidth.com";
@@ -12,8 +13,15 @@ class Signaling extends EventEmitter {
   private pingInterval?: NodeJS.Timeout;
   private uniqueDeviceId: string = uuid();
   private hasSetMediaPreferences: boolean = false;
+  private diagnosticsBatcher?: DiagnosticsBatcher;
 
-  Signaling() {}
+  constructor(diagnosticsBatcher?: DiagnosticsBatcher) {
+    super();
+    if (diagnosticsBatcher) {
+      this.diagnosticsBatcher = diagnosticsBatcher;
+      this.diagnosticsBatcher.on("diagnostics", this.sendDiagnostics.bind(this));
+    }
+  }
 
   connect(authParams: RtcAuthParams, options?: RtcOptions) {
     return new Promise<void>((resolve, reject) => {
@@ -38,7 +46,7 @@ class Signaling extends EventEmitter {
       ws.on("open", async () => {
         logger.debug("Websocket open");
         if (globalThis.addEventListener) {
-          globalThis.addEventListener("unload", (event) => {
+          globalThis.addEventListener("beforeunload", (event) => {
             this.disconnect();
           });
         }
@@ -73,6 +81,10 @@ class Signaling extends EventEmitter {
     logger.debug("Disconnecting websocket");
     if (this.ws) {
       this.ws.notify("leave");
+      if (this.diagnosticsBatcher) {
+        const finalDiagnostics = this.diagnosticsBatcher.getDiagnostics();
+        this.sendDiagnostics(finalDiagnostics);
+      }
       this.ws.removeAllListeners();
       this.ws.close();
       this.ws = null;
@@ -102,6 +114,11 @@ class Signaling extends EventEmitter {
     return this.ws?.call("setMediaPreferences", {
       protocol: "WEBRTC",
     }) as Promise<{}>;
+  }
+
+  private sendDiagnostics(diagnostics: Diagnostics): Promise<void> {
+    logger.debug(`Calling "deviceDiagnostics"`);
+    return this.ws?.notify("deviceDiagnostics", diagnostics) as Promise<void>;
   }
 }
 

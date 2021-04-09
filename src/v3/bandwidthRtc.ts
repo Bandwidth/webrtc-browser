@@ -9,6 +9,7 @@ import { PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, Sub
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
 import DtmfSender from "../dtmfSender";
+import { DiagnosticsBatcher } from "./diagnostics";
 import logger, { LogLevel } from "../logging";
 
 const RTC_CONFIGURATION: RTCConfiguration = {
@@ -19,8 +20,11 @@ const RTC_CONFIGURATION: RTCConfiguration = {
 };
 
 export class BandwidthRtc {
+  // Batches diagnostic data for debugging
+  private diagnosticsBatcher: DiagnosticsBatcher;
+
   // Communicates with the Bandwidth WebRTC platform
-  private signaling: Signaling = new Signaling();
+  private signaling: Signaling;
 
   // One peer for all published (outgoing) streams, one for all subscribed (incoming) streams
   private publishingPeerConnection?: RTCPeerConnection;
@@ -52,6 +56,9 @@ export class BandwidthRtc {
     if (logLevel) {
       logger.level = logLevel;
     }
+
+    this.diagnosticsBatcher = new DiagnosticsBatcher();
+    this.signaling = new Signaling(this.diagnosticsBatcher);
 
     this.setMicEnabled = this.setMicEnabled.bind(this);
     this.setCameraEnabled = this.setCameraEnabled.bind(this);
