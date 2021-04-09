@@ -24,13 +24,25 @@ export interface StreamMetadata {
   participantId?: string;
 }
 
+export interface DataChannelMetadata {
+  endpointId?: string;
+  label: string;
+  streamId: number;
+  participantId?: string;
+}
+
 export interface PublishedStream {
   mediaStream: MediaStream;
   metadata: StreamMetadata;
 }
 
 export interface PublishMetadata {
-  [streamId: string]: StreamMetadata;
+  mediaStreams: {
+    [streamId: string]: StreamMetadata
+  };
+  dataChannels: {
+    [dataChannelLabel: string]: DataChannelMetadata
+  };
 }
 
 export interface CodecPreferences {

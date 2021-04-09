@@ -7,7 +7,15 @@ import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
 import {AudioLevelChangeHandler, BandwidthRtcError, MediaType, RtcAuthParams, RtcOptions, RtcStream} from "../types";
-import { PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer, CodecPreferences } from "./types";
+import {
+  PublishMetadata,
+  PublishSdpAnswer,
+  PublishedStream,
+  StreamMetadata,
+  SubscribeSdpOffer,
+  CodecPreferences,
+  DataChannelMetadata
+} from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
 import DtmfSender from "../dtmfSender";
@@ -27,6 +35,14 @@ export class BandwidthRtc {
   // One peer for all published (outgoing) streams, one for all subscribed (incoming) streams
   private publishingPeerConnection?: RTCPeerConnection;
   private subscribingPeerConnection?: RTCPeerConnection;
+
+  // Standard datachannels used for platform diagnostics and health checks
+  private publishHeartbeatDataChannel?: RTCDataChannel;
+  private publishDiagnosticDataChannel?: RTCDataChannel;
+  private publishedDataChannels: Map<string, RTCDataChannel> = new Map();
+  private subscribeHeartbeatDataChannel?: RTCDataChannel;
+  private subscribeDiagnosticDataChannel?: RTCDataChannel;
+  private subscribedDataChannels: Map<string, RTCDataChannel> = new Map();
 
   // Prevents concurrent modification to RTCPeerConnection state (can cause race conditions)
   private publishMutex: Mutex = new Mutex();
@@ -272,7 +288,7 @@ export class BandwidthRtc {
     this.cleanupPublishedStreams();
   }
 
-  private async offerPublishSdp(): Promise<PublishSdpAnswer> {
+  private async offerPublishSdp(restartIce: boolean = false): Promise<PublishSdpAnswer> {
     if (!this.publishingPeerConnection) {
       throw new BandwidthRtcError("No publishing RTCPeerConnection, cannot offer SDP");
     }
@@ -282,13 +298,19 @@ export class BandwidthRtc {
         offerToReceiveVideo: false,
         offerToReceiveAudio: false,
         voiceActivityDetection: true,
-        iceRestart: false,
+        iceRestart: restartIce,
       });
 
-      const publishMetadata = [...this.publishedStreams].reduce((publishMetadata: PublishMetadata, [streamId, stream]) => {
-        publishMetadata[streamId] = stream.metadata;
-        return publishMetadata;
-      }, {});
+      let publishMetadata = {
+        mediaStreams: {},
+        dataChannels: {}
+      };
+      publishMetadata.mediaStreams = Object.fromEntries(new Map([...this.publishedStreams].map(([streamId, stream]) => [streamId, stream.metadata])));
+      publishMetadata.dataChannels = Object.fromEntries(new Map([...this.publishedDataChannels].map(([label, dataChannel]) => [label, {
+        label: dataChannel.label,
+        streamId: dataChannel.id,
+      }])));
+      logger.debug("publish metadata", publishMetadata);
       const remoteSdpAnswer = await this.signaling.offerSdp(localSdpOffer.sdp!, publishMetadata);
 
       await this.publishingPeerConnection!.setLocalDescription(localSdpOffer);
@@ -318,11 +340,11 @@ export class BandwidthRtc {
       logger.debug("subscribedStreams", this.subscribedStreams);
 
       if (!this.subscribingPeerConnection) {
-        this.setupSubscribingPeerConnection();
+        await this.setupSubscribingPeerConnection();
       }
 
       try {
-        // Munge the SDP to change the setup from "active" to "actpass"
+        // Munge the SDP to change the setup to "actpass"
         // This unfortunately seems to be required
         let parsedSdpOffer = sdpTransform.parse(remoteSdpOffer);
         parsedSdpOffer.media.forEach((media) => {
@@ -347,13 +369,7 @@ export class BandwidthRtc {
       // Munge the SDP to change the setup from "actpass" to "passive"
       // This unfortunately seems to be required
       let parsedSdpAnswer = sdpTransform.parse(localSdpAnswer.sdp!);
-      parsedSdpAnswer.media.forEach((media) => {
-        if (!media.direction) {
-          media.setup = "passive"; // data
-        } else {
-          media.setup = "passive"
-        }
-      });
+      parsedSdpAnswer.media.forEach((media) => media.setup = "passive");
       localSdpAnswer.sdp = sdpTransform.write(parsedSdpAnswer);
 
       await this.subscribingPeerConnection!.setLocalDescription(localSdpAnswer);
@@ -364,11 +380,63 @@ export class BandwidthRtc {
     });
   }
 
+  private async addHeartbeatDataChannel(peerConnection: RTCPeerConnection): Promise<RTCDataChannel> {
+    //Create a heartbeat data channel
+    let heartbeatDataChannel = peerConnection.createDataChannel('__heartbeat__', {
+      id: 0,
+      negotiated: true,
+      protocol: 'udp'
+    });
+    heartbeatDataChannel.onmessage = function(event) {
+      logger.debug("Heartbeat Received:", event.data);
+      if (event.data === 'PING') {
+        heartbeatDataChannel.send("PONG");
+      }
+    }
+    return heartbeatDataChannel;
+  }
+
+  private async addDiagnosticDataChannel(peerConnection: RTCPeerConnection): Promise<RTCDataChannel> {
+    //Create a diagnostics data channel
+    let diagnosticsDataChannel = peerConnection.createDataChannel('__diagnostics__', {
+      id: 1,
+      negotiated: true,
+      protocol: 'udp'
+    });
+    diagnosticsDataChannel.onmessage = function(event) {
+      logger.info("Diagnostics Received:", event.data);
+    }
+    return diagnosticsDataChannel;
+  }
+
   private async setupPublishingPeerConnection(): Promise<RTCPeerConnection> {
     logger.debug("Setting up publishing RTCPeerConnection");
     this.publishingPeerConnection = this.createPeerConnection();
 
-    this.setupNewPeerConnection(this.publishingPeerConnection, this.setupPublishingPeerConnection, true);
+    this.setupNewPeerConnection(this.publishingPeerConnection, this.setupPublishingPeerConnection);
+    // Attempt to restart ice if connection fails
+    this.publishingPeerConnection!.onconnectionstatechange = async (event: Event) => {
+      const pc = event.target as RTCPeerConnection;
+      let connectionState = pc.connectionState;
+      if (connectionState === "failed") {
+        await this.offerPublishSdp(true);
+        connectionState = pc.connectionState;
+        //TODO: add timeout so we dont loop here forever
+        while (connectionState === "failed") {
+          await new Promise( resolve => setTimeout(resolve, 5000) );
+          //Dont block on this, we should try multiple times
+          this.offerPublishSdp(true);
+          connectionState = pc.connectionState;
+        }
+      }
+    };
+
+    const heartbeatDataChannel = await this.addHeartbeatDataChannel(this.publishingPeerConnection);
+    this.publishedDataChannels.set(heartbeatDataChannel.label, heartbeatDataChannel);
+    this.publishHeartbeatDataChannel = heartbeatDataChannel;
+    const diagnosticDataChannel = await this.addDiagnosticDataChannel(this.publishingPeerConnection);
+    this.publishedDataChannels.set(diagnosticDataChannel.label, diagnosticDataChannel);
+    this.publishDiagnosticDataChannel = diagnosticDataChannel;
     await this.offerPublishSdp();
 
     // (Re)publish any existing media streams
@@ -382,12 +450,18 @@ export class BandwidthRtc {
     return this.publishingPeerConnection;
   }
 
-  private setupSubscribingPeerConnection(): RTCPeerConnection {
+  private async setupSubscribingPeerConnection(): Promise<RTCPeerConnection> {
     logger.debug("Setting up subscribing RTCPeerConnection");
     this.subscribingPeerConnection = this.createPeerConnection();
     this.subscribingPeerConnectionSdpRevision = 0;
 
-    this.setupNewPeerConnection(this.subscribingPeerConnection, this.setupSubscribingPeerConnection, true);
+    this.setupNewPeerConnection(this.subscribingPeerConnection, this.setupSubscribingPeerConnection);
+    const heartbeatDataChannel = await this.addHeartbeatDataChannel(this.subscribingPeerConnection);
+    this.subscribedDataChannels.set(heartbeatDataChannel.label, heartbeatDataChannel);
+    this.subscribeHeartbeatDataChannel = heartbeatDataChannel;
+    const diagnosticDataChannel = await this.addDiagnosticDataChannel(this.subscribingPeerConnection);
+    this.subscribedDataChannels.set(diagnosticDataChannel.label, diagnosticDataChannel);
+    this.subscribeDiagnosticDataChannel = diagnosticDataChannel;
 
     // Map of streams to tracks, used to deduplicate streamAvailable/streamUnavailable events
     let streamTracks: Map<MediaStream, Set<MediaStreamTrack>> = new Map();
@@ -450,31 +524,7 @@ export class BandwidthRtc {
     return this.subscribingPeerConnection;
   }
 
-  private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction, createDataChannel: boolean): void {
-    if(createDataChannel) {
-      //Create a default data channel
-      let dataChannel = peerConnection.createDataChannel('__default__', {
-        id: 0,
-        negotiated: true,
-        protocol: 'udp'
-      });
-      let intervalGenerateData = setInterval(async () => {
-        try {
-          if (dataChannel.readyState === 'open') {
-            dataChannel.send("WEEEEEE");
-            logger.warn('Sent WEEEEE');
-          } else {
-            logger.warn("datachannel not ready for sending", dataChannel.readyState);
-          }
-        } catch (Error) {
-          clearInterval(intervalGenerateData);
-        }
-      }, 10000);
-      dataChannel.onmessage = function(event) {
-        logger.info("Message:", event.data);
-      }
-    }
-
+  private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction): void {
     peerConnection.onconnectionstatechange = (event: Event) => {
       const pc = event.target as RTCPeerConnection;
       logger.debug("onconnectionstatechange", pc.connectionState, pc);
