@@ -21,16 +21,20 @@ export interface StreamMetadata {
   endpointId: string;
   mediaTypes: MediaType[];
   alias?: string;
-  participantId?: string;
+  participantId: string;
+}
+
+export interface StreamPublishMetadata {
+  alias?: string;
 }
 
 export interface PublishedStream {
   mediaStream: MediaStream;
-  metadata: StreamMetadata;
+  metadata?: StreamPublishMetadata;
 }
 
 export interface PublishMetadata {
-  [streamId: string]: StreamMetadata;
+  [streamId: string]: StreamPublishMetadata;
 }
 
 export interface CodecPreferences {

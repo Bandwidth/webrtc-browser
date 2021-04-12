@@ -5,7 +5,7 @@ import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
 import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "../types";
-import { PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer, CodecPreferences } from "./types";
+import { CodecPreferences, PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, StreamPublishMetadata, SubscribeSdpOffer } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
 import { DiagnosticsBatcher } from "./diagnostics";
@@ -137,6 +137,15 @@ export class BandwidthRtc {
     logger.info(`Publishing mediaStream ${mediaStream.id} (${alias})`);
     this.addStreamToPublishingPeerConnection(mediaStream, codecPreferences);
 
+    const publishMetadata: StreamPublishMetadata = {};
+    if (alias) {
+      publishMetadata.alias = alias;
+    }
+    this.publishedStreams.set(mediaStream.id, {
+      mediaStream: mediaStream,
+      metadata: publishMetadata,
+    });
+
     if (audioLevelChangeHandler) {
       const audioLevelDetector = new AudioLevelDetector({
         mediaStream: mediaStream,
@@ -147,11 +156,6 @@ export class BandwidthRtc {
     // Perform SDP negotiation with Bandwidth WebRTC
     const remoteSdpAnswer = await this.offerPublishSdp();
     const remoteStreamMetadata = remoteSdpAnswer.streamMetadata[mediaStream.id];
-
-    this.publishedStreams.set(mediaStream.id, {
-      mediaStream: mediaStream,
-      metadata: remoteStreamMetadata,
-    });
 
     return {
       endpointId: mediaStream.id,
@@ -177,12 +181,6 @@ export class BandwidthRtc {
       } else {
         publishedStreams.push({
           mediaStream: stream.mediaStream,
-          metadata: {
-            endpointId: stream.endpointId,
-            mediaTypes: stream.mediaTypes,
-            alias: stream.alias,
-            participantId: stream.participantId,
-          },
         });
       }
     }
@@ -283,7 +281,9 @@ export class BandwidthRtc {
       });
 
       const publishMetadata = [...this.publishedStreams].reduce((publishMetadata: PublishMetadata, [streamId, stream]) => {
-        publishMetadata[streamId] = stream.metadata;
+        if (stream.metadata) {
+          publishMetadata[streamId] = stream.metadata;
+        }
         return publishMetadata;
       }, {});
       const remoteSdpAnswer = await this.signaling.offerSdp(localSdpOffer.sdp!, publishMetadata);
