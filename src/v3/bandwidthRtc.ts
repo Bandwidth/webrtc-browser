@@ -8,7 +8,6 @@ import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, 
 import { PublishMetadata, PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer, CodecPreferences } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
-import DtmfSender from "../dtmfSender";
 import { DiagnosticsBatcher } from "./diagnostics";
 import logger, { LogLevel } from "../logging";
 
@@ -40,9 +39,6 @@ export class BandwidthRtc {
 
   // Current SDP revision for the subscribing peer; used to reject outdated SDP offers
   private subscribingPeerConnectionSdpRevision = 0;
-
-  // DTMF
-  private localDtmfSenders: Map<string, DtmfSender> = new Map();
 
   // Event handlers
   private streamAvailableHandler?: { (event: RtcStream): void };
@@ -231,11 +227,7 @@ export class BandwidthRtc {
   }
 
   sendDtmf(tone: string, streamId?: string) {
-    if (streamId) {
-      this.localDtmfSenders.get(streamId)?.sendDtmf(tone);
-    } else {
-      this.localDtmfSenders.forEach((dtmfSender) => dtmfSender.sendDtmf(tone));
-    }
+    throw new BandwidthRtcError("DTMF support is not yet implemented");
   }
 
   /**
