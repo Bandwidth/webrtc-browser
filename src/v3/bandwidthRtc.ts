@@ -1,5 +1,3 @@
-import {MediaDescription} from "sdp-transform";
-
 if (globalThis.window) {
   require("webrtc-adapter");
 }
@@ -8,13 +6,11 @@ import * as sdpTransform from "sdp-transform";
 
 import {AudioLevelChangeHandler, BandwidthRtcError, MediaType, RtcAuthParams, RtcOptions, RtcStream} from "../types";
 import {
-  PublishMetadata,
   PublishSdpAnswer,
   PublishedStream,
   StreamMetadata,
   SubscribeSdpOffer,
   CodecPreferences,
-  DataChannelMetadata,
   StreamPublishMetadata
 } from "./types";
 import Signaling from "./signaling";
@@ -28,6 +24,8 @@ const RTC_CONFIGURATION: RTCConfiguration = {
   bundlePolicy: "max-bundle",
   rtcpMuxPolicy: "require",
 };
+const HEARTBEAT_DATA_CHANNEL_LABEL = '__heartbeat__'
+const DIAGNOSTICS_DATA_CHANNEL_LABEL = '__diagnostics__'
 
 export class BandwidthRtc {
   // Batches diagnostic data for debugging
@@ -42,10 +40,10 @@ export class BandwidthRtc {
 
   // Standard datachannels used for platform diagnostics and health checks
   private publishHeartbeatDataChannel?: RTCDataChannel;
-  private publishDiagnosticDataChannel?: RTCDataChannel;
+  private publishDiagnosticsDataChannel?: RTCDataChannel;
   private publishedDataChannels: Map<string, RTCDataChannel> = new Map();
   private subscribeHeartbeatDataChannel?: RTCDataChannel;
-  private subscribeDiagnosticDataChannel?: RTCDataChannel;
+  private subscribeDiagnosticsDataChannel?: RTCDataChannel;
   private subscribedDataChannels: Map<string, RTCDataChannel> = new Map();
 
   // Prevents concurrent modification to RTCPeerConnection state (can cause race conditions)
@@ -378,14 +376,14 @@ export class BandwidthRtc {
     });
   }
 
-  private async addHeartbeatDataChannel(peerConnection: RTCPeerConnection): Promise<RTCDataChannel> {
+  private addHeartbeatDataChannel(peerConnection: RTCPeerConnection): RTCDataChannel {
     //Create a heartbeat data channel
-    let heartbeatDataChannel = peerConnection.createDataChannel('__heartbeat__', {
+    let heartbeatDataChannel = peerConnection.createDataChannel(HEARTBEAT_DATA_CHANNEL_LABEL, {
       id: 0,
       negotiated: true,
       protocol: 'udp'
     });
-    heartbeatDataChannel.onmessage = function(event) {
+    heartbeatDataChannel.onmessage = (event) => {
       logger.debug("Heartbeat Received:", event.data);
       if (event.data === 'PING') {
         heartbeatDataChannel.send("PONG");
@@ -394,14 +392,14 @@ export class BandwidthRtc {
     return heartbeatDataChannel;
   }
 
-  private async addDiagnosticDataChannel(peerConnection: RTCPeerConnection): Promise<RTCDataChannel> {
+  private addDiagnosticsDataChannel(peerConnection: RTCPeerConnection): RTCDataChannel {
     //Create a diagnostics data channel
-    let diagnosticsDataChannel = peerConnection.createDataChannel('__diagnostics__', {
+    let diagnosticsDataChannel = peerConnection.createDataChannel(DIAGNOSTICS_DATA_CHANNEL_LABEL, {
       id: 1,
       negotiated: true,
       protocol: 'udp'
     });
-    diagnosticsDataChannel.onmessage = function(event) {
+    diagnosticsDataChannel.onmessage = (event) => {
       logger.info("Diagnostics Received:", event.data);
     }
     return diagnosticsDataChannel;
@@ -411,7 +409,7 @@ export class BandwidthRtc {
     logger.debug("Setting up publishing RTCPeerConnection");
     this.publishingPeerConnection = this.createPeerConnection();
 
-    this.setupNewPeerConnection(this.publishingPeerConnection, this.setupPublishingPeerConnection);
+    this.setupNewPeerConnection(this.publishingPeerConnection);
     // Attempt to restart ice if connection fails
     this.publishingPeerConnection!.onconnectionstatechange = async (event: Event) => {
       const pc = event.target as RTCPeerConnection;
@@ -429,12 +427,12 @@ export class BandwidthRtc {
       }
     };
 
-    const heartbeatDataChannel = await this.addHeartbeatDataChannel(this.publishingPeerConnection);
+    const heartbeatDataChannel = this.addHeartbeatDataChannel(this.publishingPeerConnection);
     this.publishedDataChannels.set(heartbeatDataChannel.label, heartbeatDataChannel);
     this.publishHeartbeatDataChannel = heartbeatDataChannel;
-    const diagnosticDataChannel = await this.addDiagnosticDataChannel(this.publishingPeerConnection);
+    const diagnosticDataChannel = this.addDiagnosticsDataChannel(this.publishingPeerConnection);
     this.publishedDataChannels.set(diagnosticDataChannel.label, diagnosticDataChannel);
-    this.publishDiagnosticDataChannel = diagnosticDataChannel;
+    this.publishDiagnosticsDataChannel = diagnosticDataChannel;
     await this.offerPublishSdp();
 
     // (Re)publish any existing media streams
@@ -453,13 +451,13 @@ export class BandwidthRtc {
     this.subscribingPeerConnection = this.createPeerConnection();
     this.subscribingPeerConnectionSdpRevision = 0;
 
-    this.setupNewPeerConnection(this.subscribingPeerConnection, this.setupSubscribingPeerConnection);
-    const heartbeatDataChannel = await this.addHeartbeatDataChannel(this.subscribingPeerConnection);
+    this.setupNewPeerConnection(this.subscribingPeerConnection);
+    const heartbeatDataChannel = this.addHeartbeatDataChannel(this.subscribingPeerConnection);
     this.subscribedDataChannels.set(heartbeatDataChannel.label, heartbeatDataChannel);
     this.subscribeHeartbeatDataChannel = heartbeatDataChannel;
-    const diagnosticDataChannel = await this.addDiagnosticDataChannel(this.subscribingPeerConnection);
+    const diagnosticDataChannel = this.addDiagnosticsDataChannel(this.subscribingPeerConnection);
     this.subscribedDataChannels.set(diagnosticDataChannel.label, diagnosticDataChannel);
-    this.subscribeDiagnosticDataChannel = diagnosticDataChannel;
+    this.subscribeDiagnosticsDataChannel = diagnosticDataChannel;
 
     // Map of streams to tracks, used to deduplicate streamAvailable/streamUnavailable events
     let streamTracks: Map<MediaStream, Set<MediaStreamTrack>> = new Map();
@@ -522,7 +520,7 @@ export class BandwidthRtc {
     return this.subscribingPeerConnection;
   }
 
-  private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction): void {
+  private setupNewPeerConnection(peerConnection: RTCPeerConnection): void {
     peerConnection.onconnectionstatechange = (event) => {
       try {
         const pc = event.target as RTCPeerConnection;
@@ -530,11 +528,6 @@ export class BandwidthRtc {
         const connectionState = pc.connectionState;
         if (connectionState === "disconnected") {
           logger.warn("Peer disconnected, connection may be reestablished");
-        }
-        if (connectionState === "failed" || connectionState === "closed") {
-          logger.warn("Connection lost, refresh to retry");
-          // TODO: make automatic reconnection work
-          // onPeerClosed();
         }
       } catch (err) {
         if (globalThis.window) {
