@@ -28,13 +28,23 @@ export interface StreamPublishMetadata {
   alias?: string;
 }
 
+export interface DataChannelPublishMetadata {
+  label: string;
+  streamId: number;
+}
+
 export interface PublishedStream {
   mediaStream: MediaStream;
   metadata?: StreamPublishMetadata;
 }
 
 export interface PublishMetadata {
-  [streamId: string]: StreamPublishMetadata;
+  mediaStreams: {
+    [streamId: string]: StreamPublishMetadata;
+  };
+  dataChannels: {
+    [dataChannelLabel: string]: DataChannelPublishMetadata;
+  };
 }
 
 export interface CodecPreferences {
