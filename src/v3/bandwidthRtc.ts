@@ -475,6 +475,23 @@ export class BandwidthRtc {
         }
         availableTracks.add(track);
 
+        stream.onremovetrack = (event) => {
+          logger.debug("onremovetrack", event);
+          if (this.streamUnavailableHandler) {
+            let removedTrack = event.track;
+            let deleteResult = availableTracks?.delete(removedTrack);
+            if (deleteResult) {
+              if (availableTracks?.size === 0) {
+                logger.debug("onStreamUnavailable", stream.id);
+                this.streamUnavailableHandler(stream.id);
+                streamTracks.delete(stream);
+              } else {
+                logger.debug("Waiting on tracks to end", availableTracks);
+              }
+            }
+          }
+        };
+
         if (this.streamAvailableHandler) {
           if (stream.getTracks().filter((track) => !availableTracks!.has(track)).length === 0) {
             // All tracks are available
@@ -504,13 +521,15 @@ export class BandwidthRtc {
         if (this.streamUnavailableHandler) {
           for (let stream of streams) {
             let availableTracks = streamTracks.get(stream);
-            availableTracks?.delete(track);
-            if (availableTracks?.size === 0) {
-              logger.debug("onStreamUnavailable", stream.id);
-              this.streamUnavailableHandler(stream.id);
-              streamTracks.delete(stream);
-            } else {
-              logger.debug("Waiting on tracks to end", availableTracks);
+            let deleteResult = availableTracks?.delete(track);
+            if (deleteResult) {
+              if (availableTracks?.size === 0) {
+                logger.debug("onStreamUnavailable", stream.id);
+                this.streamUnavailableHandler(stream.id);
+                streamTracks.delete(stream);
+              } else {
+                logger.debug("Waiting on tracks to end", availableTracks);
+              }
             }
           }
         }
