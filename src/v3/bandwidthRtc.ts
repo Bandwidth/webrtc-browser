@@ -4,15 +4,8 @@ if (globalThis.window) {
 import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
-import {AudioLevelChangeHandler, BandwidthRtcError, MediaType, RtcAuthParams, RtcOptions, RtcStream} from "../types";
-import {
-  PublishSdpAnswer,
-  PublishedStream,
-  StreamMetadata,
-  SubscribeSdpOffer,
-  CodecPreferences,
-  StreamPublishMetadata
-} from "./types";
+import { AudioLevelChangeHandler, BandwidthRtcError, MediaType, RtcAuthParams, RtcOptions, RtcStream } from "../types";
+import { PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer, CodecPreferences, StreamPublishMetadata } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
 import { DiagnosticsBatcher } from "./diagnostics";
@@ -24,8 +17,8 @@ const RTC_CONFIGURATION: RTCConfiguration = {
   bundlePolicy: "max-bundle",
   rtcpMuxPolicy: "require",
 };
-const HEARTBEAT_DATA_CHANNEL_LABEL = '__heartbeat__'
-const DIAGNOSTICS_DATA_CHANNEL_LABEL = '__diagnostics__'
+const HEARTBEAT_DATA_CHANNEL_LABEL = "__heartbeat__";
+const DIAGNOSTICS_DATA_CHANNEL_LABEL = "__diagnostics__";
 
 export class BandwidthRtc {
   // Batches diagnostic data for debugging
@@ -299,13 +292,20 @@ export class BandwidthRtc {
 
       let publishMetadata = {
         mediaStreams: {},
-        dataChannels: {}
+        dataChannels: {},
       };
       publishMetadata.mediaStreams = Object.fromEntries(new Map([...this.publishedStreams].map(([streamId, stream]) => [streamId, stream.metadata || {}])));
-      publishMetadata.dataChannels = Object.fromEntries(new Map([...this.publishedDataChannels].map(([label, dataChannel]) => [label, {
-        label: dataChannel.label,
-        streamId: dataChannel.id,
-      }])));
+      publishMetadata.dataChannels = Object.fromEntries(
+        new Map(
+          [...this.publishedDataChannels].map(([label, dataChannel]) => [
+            label,
+            {
+              label: dataChannel.label,
+              streamId: dataChannel.id,
+            },
+          ])
+        )
+      );
       logger.debug("publish metadata", publishMetadata);
       const remoteSdpAnswer = await this.signaling.offerSdp(localSdpOffer.sdp!, publishMetadata);
 
@@ -365,7 +365,7 @@ export class BandwidthRtc {
       // Munge the SDP to change the setup from "actpass" to "passive"
       // This unfortunately seems to be required
       let parsedSdpAnswer = sdpTransform.parse(localSdpAnswer.sdp!);
-      parsedSdpAnswer.media.forEach((media) => media.setup = "passive");
+      parsedSdpAnswer.media.forEach((media) => (media.setup = "passive"));
       localSdpAnswer.sdp = sdpTransform.write(parsedSdpAnswer);
 
       await this.subscribingPeerConnection!.setLocalDescription(localSdpAnswer);
@@ -381,14 +381,14 @@ export class BandwidthRtc {
     let heartbeatDataChannel = peerConnection.createDataChannel(HEARTBEAT_DATA_CHANNEL_LABEL, {
       id: 0,
       negotiated: true,
-      protocol: 'udp'
+      protocol: "udp",
     });
     heartbeatDataChannel.onmessage = (event) => {
       logger.debug("Heartbeat Received:", event.data);
-      if (event.data === 'PING') {
+      if (event.data === "PING") {
         heartbeatDataChannel.send("PONG");
       }
-    }
+    };
     return heartbeatDataChannel;
   }
 
@@ -397,11 +397,11 @@ export class BandwidthRtc {
     let diagnosticsDataChannel = peerConnection.createDataChannel(DIAGNOSTICS_DATA_CHANNEL_LABEL, {
       id: 1,
       negotiated: true,
-      protocol: 'udp'
+      protocol: "udp",
     });
     diagnosticsDataChannel.onmessage = (event) => {
       logger.info("Diagnostics Received:", event.data);
-    }
+    };
     return diagnosticsDataChannel;
   }
 
@@ -419,7 +419,7 @@ export class BandwidthRtc {
         connectionState = pc.connectionState;
         //TODO: add timeout so we dont loop here forever
         while (connectionState === "failed") {
-          await new Promise( resolve => setTimeout(resolve, 5000) );
+          await new Promise((resolve) => setTimeout(resolve, 5000));
           //Dont block on this, we should try multiple times
           this.offerPublishSdp(true);
           connectionState = pc.connectionState;

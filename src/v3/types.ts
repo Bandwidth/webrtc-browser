@@ -40,10 +40,10 @@ export interface PublishedStream {
 
 export interface PublishMetadata {
   mediaStreams: {
-    [streamId: string]: StreamPublishMetadata
+    [streamId: string]: StreamPublishMetadata;
   };
   dataChannels: {
-    [dataChannelLabel: string]: DataChannelPublishMetadata
+    [dataChannelLabel: string]: DataChannelPublishMetadata;
   };
 }
 
