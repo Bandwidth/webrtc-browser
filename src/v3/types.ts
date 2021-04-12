@@ -21,7 +21,11 @@ export interface StreamMetadata {
   endpointId: string;
   mediaTypes: MediaType[];
   alias?: string;
-  participantId?: string;
+  participantId: string;
+}
+
+export interface StreamPublishMetadata {
+  alias?: string;
 }
 
 export interface DataChannelMetadata {
@@ -33,12 +37,12 @@ export interface DataChannelMetadata {
 
 export interface PublishedStream {
   mediaStream: MediaStream;
-  metadata: StreamMetadata;
+  metadata?: StreamPublishMetadata;
 }
 
 export interface PublishMetadata {
   mediaStreams: {
-    [streamId: string]: StreamMetadata
+    [streamId: string]: StreamPublishMetadata
   };
   dataChannels: {
     [dataChannelLabel: string]: DataChannelMetadata

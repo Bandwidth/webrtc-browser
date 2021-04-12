@@ -14,11 +14,12 @@ import {
   StreamMetadata,
   SubscribeSdpOffer,
   CodecPreferences,
-  DataChannelMetadata
+  DataChannelMetadata,
+  StreamPublishMetadata
 } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
-import DtmfSender from "../dtmfSender";
+import { DiagnosticsBatcher } from "./diagnostics";
 import logger, { LogLevel } from "../logging";
 
 const RTC_CONFIGURATION: RTCConfiguration = {
@@ -29,8 +30,11 @@ const RTC_CONFIGURATION: RTCConfiguration = {
 };
 
 export class BandwidthRtc {
+  // Batches diagnostic data for debugging
+  private diagnosticsBatcher: DiagnosticsBatcher;
+
   // Communicates with the Bandwidth WebRTC platform
-  private signaling: Signaling = new Signaling();
+  private signaling: Signaling;
 
   // One peer for all published (outgoing) streams, one for all subscribed (incoming) streams
   private publishingPeerConnection?: RTCPeerConnection;
@@ -55,9 +59,6 @@ export class BandwidthRtc {
   // Current SDP revision for the subscribing peer; used to reject outdated SDP offers
   private subscribingPeerConnectionSdpRevision = 0;
 
-  // DTMF
-  private localDtmfSenders: Map<string, DtmfSender> = new Map();
-
   // Event handlers
   private streamAvailableHandler?: { (event: RtcStream): void };
   private streamUnavailableHandler?: { (streamId: string): void };
@@ -70,6 +71,9 @@ export class BandwidthRtc {
     if (logLevel) {
       logger.level = logLevel;
     }
+
+    this.diagnosticsBatcher = new DiagnosticsBatcher();
+    this.signaling = new Signaling(this.diagnosticsBatcher);
 
     this.setMicEnabled = this.setMicEnabled.bind(this);
     this.setCameraEnabled = this.setCameraEnabled.bind(this);
@@ -152,6 +156,15 @@ export class BandwidthRtc {
     logger.info(`Publishing mediaStream ${mediaStream.id} (${alias})`);
     this.addStreamToPublishingPeerConnection(mediaStream, codecPreferences);
 
+    const publishMetadata: StreamPublishMetadata = {};
+    if (alias) {
+      publishMetadata.alias = alias;
+    }
+    this.publishedStreams.set(mediaStream.id, {
+      mediaStream: mediaStream,
+      metadata: publishMetadata,
+    });
+
     if (audioLevelChangeHandler) {
       const audioLevelDetector = new AudioLevelDetector({
         mediaStream: mediaStream,
@@ -162,11 +175,6 @@ export class BandwidthRtc {
     // Perform SDP negotiation with Bandwidth WebRTC
     const remoteSdpAnswer = await this.offerPublishSdp();
     const remoteStreamMetadata = remoteSdpAnswer.streamMetadata[mediaStream.id];
-
-    this.publishedStreams.set(mediaStream.id, {
-      mediaStream: mediaStream,
-      metadata: remoteStreamMetadata,
-    });
 
     return {
       endpointId: mediaStream.id,
@@ -192,12 +200,6 @@ export class BandwidthRtc {
       } else {
         publishedStreams.push({
           mediaStream: stream.mediaStream,
-          metadata: {
-            endpointId: stream.endpointId,
-            mediaTypes: stream.mediaTypes,
-            alias: stream.alias,
-            participantId: stream.participantId,
-          },
         });
       }
     }
@@ -242,11 +244,7 @@ export class BandwidthRtc {
   }
 
   sendDtmf(tone: string, streamId?: string) {
-    if (streamId) {
-      this.localDtmfSenders.get(streamId)?.sendDtmf(tone);
-    } else {
-      this.localDtmfSenders.forEach((dtmfSender) => dtmfSender.sendDtmf(tone));
-    }
+    throw new BandwidthRtcError("DTMF support is not yet implemented");
   }
 
   /**
@@ -305,7 +303,7 @@ export class BandwidthRtc {
         mediaStreams: {},
         dataChannels: {}
       };
-      publishMetadata.mediaStreams = Object.fromEntries(new Map([...this.publishedStreams].map(([streamId, stream]) => [streamId, stream.metadata])));
+      publishMetadata.mediaStreams = Object.fromEntries(new Map([...this.publishedStreams].map(([streamId, stream]) => [streamId, stream.metadata || {}])));
       publishMetadata.dataChannels = Object.fromEntries(new Map([...this.publishedDataChannels].map(([label, dataChannel]) => [label, {
         label: dataChannel.label,
         streamId: dataChannel.id,
@@ -525,37 +523,67 @@ export class BandwidthRtc {
   }
 
   private setupNewPeerConnection(peerConnection: RTCPeerConnection, onPeerClosed: CallableFunction): void {
-    peerConnection.onconnectionstatechange = (event: Event) => {
-      const pc = event.target as RTCPeerConnection;
-      logger.debug("onconnectionstatechange", pc.connectionState, pc);
-      const connectionState = pc.connectionState;
-      if (connectionState === "disconnected") {
-        logger.warn("Peer disconnected, connection may be reestablished");
-      }
-      if (connectionState === "failed" || connectionState === "closed") {
-        logger.warn("Connection lost, refresh to retry");
-        // TODO: make automatic reconnection work
-        // onPeerClosed();
+    peerConnection.onconnectionstatechange = (event) => {
+      try {
+        const pc = event.target as RTCPeerConnection;
+        logger.debug("onconnectionstatechange", pc.connectionState, pc);
+        const connectionState = pc.connectionState;
+        if (connectionState === "disconnected") {
+          logger.warn("Peer disconnected, connection may be reestablished");
+        }
+        if (connectionState === "failed" || connectionState === "closed") {
+          logger.warn("Connection lost, refresh to retry");
+          // TODO: make automatic reconnection work
+          // onPeerClosed();
+        }
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onconnectionstatechange error", err);
+        }
       }
     };
 
     peerConnection.oniceconnectionstatechange = (event) => {
-      const pc = event.target as RTCPeerConnection;
-      logger.debug("oniceconnectionstatechange", pc.iceConnectionState, pc);
+      try {
+        const pc = event.target as RTCPeerConnection;
+        logger.debug("oniceconnectionstatechange", pc.iceConnectionState, pc);
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("oniceconnectionstatechange error", err);
+        }
+      }
     };
 
     peerConnection.onicegatheringstatechange = (event) => {
-      const pc = event.target as RTCPeerConnection;
-      logger.debug("onicegatheringstatechange", pc.iceGatheringState, pc);
+      try {
+        const pc = event.target as RTCPeerConnection;
+        logger.debug("onicegatheringstatechange", pc.iceGatheringState, pc);
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onicegatheringstatechange error", err);
+        }
+      }
     };
 
     peerConnection.onnegotiationneeded = (event) => {
-      logger.debug("onnegotiationneeded", event.target);
+      try {
+        logger.debug("onnegotiationneeded", event.target);
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onnegotiationneeded error", err);
+        }
+      }
     };
 
     peerConnection.onsignalingstatechange = (event) => {
-      const pc = event.target as RTCPeerConnection;
-      logger.debug("onsignalingstatechange", pc.signalingState, pc);
+      try {
+        const pc = event.target as RTCPeerConnection;
+        logger.debug("onsignalingstatechange", pc.signalingState, pc);
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onsignalingstatechange error", err);
+        }
+      }
     };
 
     peerConnection.ontrack = (event: RTCTrackEvent) => {
