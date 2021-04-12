@@ -475,6 +475,21 @@ export class BandwidthRtc {
         }
         availableTracks.add(track);
 
+        stream.onremovetrack = (event) => {
+          logger.debug("onremovetrack", event);
+          if (this.streamUnavailableHandler) {
+            let removedTrack = event.track;
+            availableTracks?.delete(removedTrack);
+            if (availableTracks?.size === 0) {
+              logger.debug("onStreamUnavailable", stream.id);
+              this.streamUnavailableHandler(stream.id);
+              streamTracks.delete(stream);
+            } else {
+              logger.debug("Waiting on tracks to end", availableTracks);
+            }
+          }
+        };
+
         if (this.streamAvailableHandler) {
           if (stream.getTracks().filter((track) => !availableTracks!.has(track)).length === 0) {
             // All tracks are available
