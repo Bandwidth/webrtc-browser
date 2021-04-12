@@ -24,12 +24,13 @@ class Logger extends EventEmitter {
   }
 
   log(level: LogLevel, ...args: any) {
-    const now = new Date(Date.now()).toISOString();
+    const timestamp = Date.now();
+    const localDatetime = new Date(timestamp).toLocaleString();
     if (this._level >= Level[level]) {
       // @ts-ignore
-      console[level](now, ...args);
+      console[level](localDatetime, ...args);
     }
-    this.emit("log", level, now, ...args);
+    this.emit("log", level, timestamp, ...args);
   }
 
   error(...args: any) {
