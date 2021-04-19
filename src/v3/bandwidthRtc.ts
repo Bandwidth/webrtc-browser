@@ -275,6 +275,10 @@ export class BandwidthRtc {
     logger.info("Disconnecting");
     this.signaling.disconnect();
     this.cleanupPublishedStreams();
+    this.publishingPeerConnection?.close();
+    this.subscribingPeerConnection?.close();
+    this.publishingPeerConnection = undefined;
+    this.subscribingPeerConnection = undefined;
   }
 
   private async offerPublishSdp(restartIce: boolean = false): Promise<PublishSdpAnswer> {
@@ -319,27 +323,27 @@ export class BandwidthRtc {
     });
   }
 
-  private async handleSubscribeSdpOffer(subscribeSdpOffer: SubscribeSdpOffer) {
-    await this.subscribeMutex.runExclusive(async () => {
-      logger.info("Received SDP offer", subscribeSdpOffer);
-      logger.debug("Current SDP revision", this.subscribingPeerConnectionSdpRevision);
-      if (subscribeSdpOffer.sdpRevision <= this.subscribingPeerConnectionSdpRevision) {
-        logger.debug(
-          `Revision on SDP offer (${subscribeSdpOffer.sdpRevision}) is less than current revision (${this.subscribingPeerConnectionSdpRevision}), ignoring`
-        );
-        return;
-      }
+  private async handleSubscribeSdpOffer(subscribeSdpOffer: SubscribeSdpOffer): Promise<void> {
+    try {
+      await this.subscribeMutex.runExclusive(async () => {
+        logger.info("Received SDP offer", subscribeSdpOffer);
+        logger.debug("Current SDP revision", this.subscribingPeerConnectionSdpRevision);
+        if (subscribeSdpOffer.sdpRevision <= this.subscribingPeerConnectionSdpRevision) {
+          logger.debug(
+            `Revision on SDP offer (${subscribeSdpOffer.sdpRevision}) is less than current revision (${this.subscribingPeerConnectionSdpRevision}), ignoring`
+          );
+          return;
+        }
 
-      const remoteSdpOffer = subscribeSdpOffer.sdpOffer;
+        const remoteSdpOffer = subscribeSdpOffer.sdpOffer;
 
-      this.subscribedStreams = new Map(Object.entries(subscribeSdpOffer.streamMetadata));
-      logger.debug("subscribedStreams", this.subscribedStreams);
+        this.subscribedStreams = new Map(Object.entries(subscribeSdpOffer.streamMetadata));
+        logger.debug("subscribedStreams", this.subscribedStreams);
 
-      if (!this.subscribingPeerConnection) {
-        await this.setupSubscribingPeerConnection();
-      }
+        if (!this.subscribingPeerConnection) {
+          await this.setupSubscribingPeerConnection();
+        }
 
-      try {
         // Munge the SDP to change the setup to "actpass"
         // This unfortunately seems to be required
         let parsedSdpOffer = sdpTransform.parse(remoteSdpOffer);
@@ -353,27 +357,28 @@ export class BandwidthRtc {
           type: "offer",
           sdp: mungedRemoteSdpOffer,
         });
-      } catch (err) {
-        throw new BandwidthRtcError(err);
-      }
 
-      let localSdpAnswer = await this.subscribingPeerConnection!.createAnswer();
-      if (!localSdpAnswer.sdp) {
-        throw new BandwidthRtcError(`RTCPeerConnection.createAnswer returned ${JSON.stringify(localSdpAnswer)}`);
-      }
+        let localSdpAnswer = await this.subscribingPeerConnection!.createAnswer();
+        if (!localSdpAnswer.sdp) {
+          throw new BandwidthRtcError(`RTCPeerConnection.createAnswer returned ${JSON.stringify(localSdpAnswer)}`);
+        }
 
-      // Munge the SDP to change the setup from "actpass" to "passive"
-      // This unfortunately seems to be required
-      let parsedSdpAnswer = sdpTransform.parse(localSdpAnswer.sdp!);
-      parsedSdpAnswer.media.forEach((media) => (media.setup = "passive"));
-      localSdpAnswer.sdp = sdpTransform.write(parsedSdpAnswer);
+        // Munge the SDP to change the setup from "actpass" to "passive"
+        // This unfortunately seems to be required
+        let parsedSdpAnswer = sdpTransform.parse(localSdpAnswer.sdp!);
+        parsedSdpAnswer.media.forEach((media) => (media.setup = "passive"));
+        localSdpAnswer.sdp = sdpTransform.write(parsedSdpAnswer);
 
-      await this.subscribingPeerConnection!.setLocalDescription(localSdpAnswer);
-      await this.signaling.answerSdp(localSdpAnswer.sdp);
+        await this.subscribingPeerConnection!.setLocalDescription(localSdpAnswer);
+        await this.signaling.answerSdp(localSdpAnswer.sdp);
 
-      this.subscribingPeerConnectionSdpRevision = subscribeSdpOffer.sdpRevision;
-      logger.debug(`set current SDP revision to ${this.subscribingPeerConnectionSdpRevision}`);
-    });
+        this.subscribingPeerConnectionSdpRevision = subscribeSdpOffer.sdpRevision;
+        logger.debug(`set current SDP revision to ${this.subscribingPeerConnectionSdpRevision}`);
+      });
+    } catch (err) {
+      // TODO: emit this as an error from an EventEmitter
+      logger.debug("error in handleSubscribeSdpOffer", err);
+    }
   }
 
   private addHeartbeatDataChannel(peerConnection: RTCPeerConnection): RTCDataChannel {
@@ -384,8 +389,7 @@ export class BandwidthRtc {
       protocol: "udp",
     });
     heartbeatDataChannel.onmessage = (event) => {
-      logger.debug("Heartbeat Received:", event.data);
-      if (event.data === "PING") {
+      if (event.data == "PING" && heartbeatDataChannel.readyState === "open") {
         heartbeatDataChannel.send("PONG");
       }
     };
@@ -412,17 +416,23 @@ export class BandwidthRtc {
     this.setupNewPeerConnection(this.publishingPeerConnection);
     // Attempt to restart ice if connection fails
     this.publishingPeerConnection!.onconnectionstatechange = async (event: Event) => {
-      const pc = event.target as RTCPeerConnection;
-      let connectionState = pc.connectionState;
-      if (connectionState === "failed") {
-        await this.offerPublishSdp(true);
-        connectionState = pc.connectionState;
-        //TODO: add timeout so we dont loop here forever
-        while (connectionState === "failed") {
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-          //Dont block on this, we should try multiple times
-          this.offerPublishSdp(true);
+      try {
+        const pc = event.target as RTCPeerConnection;
+        let connectionState = pc.connectionState;
+        if (connectionState === "failed") {
+          await this.offerPublishSdp(true);
           connectionState = pc.connectionState;
+          // TODO: add timeout so we dont loop here forever
+          while (connectionState === "failed") {
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+            // Don't block on this, we should try multiple times
+            this.offerPublishSdp(true);
+            connectionState = pc.connectionState;
+          }
+        }
+      } catch (err) {
+        if (globalThis.window) {
+          logger.warn("onconnectionstatechange error", err);
         }
       }
     };
@@ -644,7 +654,6 @@ export class BandwidthRtc {
         this.publishingPeerConnection!.getTransceivers()
           .filter((transceiver) => transceiver.sender.track === track)
           .forEach((transceiver) => {
-            transceiver.sender.replaceTrack(null);
             this.publishingPeerConnection!.removeTrack(transceiver.sender);
             transceiver.stop();
           });
