@@ -12,6 +12,7 @@ export enum MediaAggregationType {
 export enum MediaType {
   AUDIO = "AUDIO",
   VIDEO = "VIDEO",
+  APPLICATION = "APPLICATION",
 }
 
 export type AudioLevelChangeHandler = { (audioLevel: AudioLevel): void };
@@ -24,19 +25,6 @@ export interface RtcOptions {
   websocketUrl?: string;
 }
 
-export interface SdpRequest {
-  endpointId: string;
-  mediaTypes: MediaType[];
-  direction: RTCRtpTransceiverDirection;
-  alias: string;
-  participantId?: string;
-}
-
-export interface SdpResponse {
-  sdpAnswer: string;
-  candidates?: RTCIceCandidate[];
-}
-
 export interface RtcStream {
   endpointId: string;
   mediaTypes: MediaType[];
@@ -45,18 +33,4 @@ export interface RtcStream {
   participantId?: string;
 }
 
-export interface EndpointRemovedEvent {
-  endpointId: string;
-}
-
-export interface IceCandidateEvent {
-  endpointId: string;
-  candidate: RTCIceCandidate;
-}
-
-export interface MessageReceivedEvent {
-  channelId: string;
-  message: string;
-}
-
-export class SdpOfferRejectedError extends Error {}
+export class BandwidthRtcError extends Error {}

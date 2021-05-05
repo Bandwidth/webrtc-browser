@@ -1,8 +1,9 @@
-const sdkVersion = require("../package.json").version;
+const sdkVersion = require("../../package.json").version;
 import { v4 as uuid } from "uuid";
 import { EventEmitter } from "events";
 import { Client as JsonRpcClient } from "rpc-websockets";
-import { MediaAggregationType, RtcAuthParams, RtcOptions, MediaType, SdpRequest, SdpResponse } from "./types";
+import { MediaAggregationType, RtcAuthParams, RtcOptions, MediaType } from "../types";
+import { SdpRequest, SdpResponse } from "./types";
 
 class Signaling extends EventEmitter {
   private defaultWebsocketUrl: string = "wss://device.webrtc.bandwidth.com";
@@ -14,7 +15,7 @@ class Signaling extends EventEmitter {
   Signaling() {}
 
   connect(authParams: RtcAuthParams, options?: RtcOptions) {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       let rtcOptions: RtcOptions = {
         websocketUrl: this.defaultWebsocketUrl,
       };

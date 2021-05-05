@@ -1,132 +1,131 @@
-require("webrtc-adapter");
-import {
-  AudioLevelChangeHandler,
-  EndpointRemovedEvent,
-  IceCandidateEvent,
-  MediaType,
-  RtcAuthParams,
-  RtcOptions,
-  RtcStream,
-  SdpRequest,
-  SdpOfferRejectedError,
-} from "./types";
-import Signaling from "./signaling";
-import AudioLevelDetector from "./audioLevelDetector";
-import DtmfSender from "./dtmfSender";
+if (globalThis.window) {
+  require("webrtc-adapter");
+}
+import jwt_decode from "jwt-decode";
 
-const RTC_CONFIGURATION: RTCConfiguration = {
-  iceServers: [],
-};
+import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "./types";
+import logger, { LogLevel } from "./logging";
+
+import { BandwidthRtc as BandwidthRtcV2 } from "./v2/bandwidthRtc";
+import { BandwidthRtc as BandwidthRtcV3 } from "./v3/bandwidthRtc";
+import { CodecPreferences } from "./v3/types";
 
 class BandwidthRtc {
-  // Signaling
-  private signaling: Signaling = new Signaling();
-
-  // WebRTC
-  private localPeerConnections: Map<string, RTCPeerConnection> = new Map();
-  private localStreams: Map<string, MediaStream> = new Map();
-
-  private remotePeerConnections: Map<string, RTCPeerConnection> = new Map();
-  private iceCandidateQueues: Map<string, RTCIceCandidate[]> = new Map();
-
-  // DTMF
-  private localDtmfSenders: Map<string, DtmfSender> = new Map();
-
   // Event handlers
   private streamAvailableHandler?: { (event: RtcStream): void };
   private streamUnavailableHandler?: { (endpointId: string): void };
 
-  constructor() {
+  private logLevel?: LogLevel;
+  private delegate?: BandwidthRtcV2 | BandwidthRtcV3;
+
+  constructor(logLevel?: LogLevel) {
+    if (logLevel) {
+      this.setLogLevel(logLevel);
+    }
     this.setMicEnabled = this.setMicEnabled.bind(this);
     this.setCameraEnabled = this.setCameraEnabled.bind(this);
   }
 
+  /**
+   * Connect to the Bandwidth WebRTC platform
+   * @param authParams connection credentials
+   * @param options additional connection options; usually unnecessary
+   */
   async connect(authParams: RtcAuthParams, options?: RtcOptions) {
-    this.createSignalingBroker();
+    const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
+    if (jwtPayload.v?.toLowerCase() === "v3") {
+      logger.info("Using device API version 3");
+      this.delegate = new BandwidthRtcV3(this.logLevel);
+    } else {
+      logger.info("Using device API version 2");
+      this.delegate = new BandwidthRtcV2();
+    }
 
-    this.signaling.addListener("sdpNeeded", this.handleSdpNeededEvent.bind(this));
-    this.signaling.addListener("addIceCandidate", this.handleIceCandidateEvent.bind(this));
-    this.signaling.addListener("endpointRemoved", this.handleEndpointRemovedEvent.bind(this));
+    if (this.streamAvailableHandler) {
+      this.delegate.onStreamAvailable(this.streamAvailableHandler);
+    }
 
-    return this.signaling.connect(authParams, options);
+    if (this.streamUnavailableHandler) {
+      this.delegate.onStreamUnavailable(this.streamUnavailableHandler);
+    }
+
+    return this.delegate.connect(authParams, options);
   }
 
+  /**
+   * Set the log level for logs that will appear in the browser's console
+   * Defaults to "warn"
+   * @param logLevel log level
+   */
+  setLogLevel(logLevel: LogLevel) {
+    this.logLevel = logLevel;
+    logger.level = logLevel;
+  }
+
+  /**
+   * Set the function that will be called when a subscribed stream becomes available
+   * @param callback callback function
+   */
   onStreamAvailable(callback: { (event: RtcStream): void }): void {
     this.streamAvailableHandler = callback;
+    if (this.delegate) {
+      this.delegate.onStreamAvailable(callback);
+    }
   }
 
-  onStreamUnavailable(callback: { (endpointId: string): void }): void {
+  /**
+   * Set the function that will be called when a subscribed stream becomes unavailable
+   * @param callback callback function
+   */
+  onStreamUnavailable(callback: { (streamId: string): void }): void {
     this.streamUnavailableHandler = callback;
+    if (this.delegate) {
+      this.delegate.onStreamUnavailable(callback);
+    }
   }
 
-  async publish(mediaStream: MediaStream, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream>;
-  async publish(constraints?: MediaStreamConstraints, audioLevelChangeHandler?: AudioLevelChangeHandler, alias?: string): Promise<RtcStream>;
+  /**
+   * Publish media to the Bandwidth WebRTC platform
+   *
+   * This function can publish an existing MediaStream, or it can create and publish a new media stream from MediaStreamConstraints
+   * @param input existing media or specific constraints to publish (optional, defaults to basic audio/video constraints)
+   * @param audioLevelChangeHandler handler that can be called when the audio level of the published stream changes (optional)
+   * @param alias stream alias/tag that will be included in subscription events and billing records, should not be PII (optional)
+   * @param codecPreferences preferred audio and video codecs (optional, should almost never be needed)
+   */
   async publish(
-    input: MediaStreamConstraints | MediaStream | undefined,
+    input?: MediaStreamConstraints | MediaStream,
     audioLevelChangeHandler?: AudioLevelChangeHandler,
-    alias?: string
+    alias?: string,
+    codecPreferences?: CodecPreferences
   ): Promise<RtcStream> {
-    let mediaStream: MediaStream;
-    let constraints: MediaStreamConstraints = { audio: true, video: true };
-    if (input instanceof MediaStream) {
-      mediaStream = input;
-    } else {
-      if (typeof input === "object") {
-        constraints = input as MediaStreamConstraints;
-      }
-      mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (!this.delegate) {
+      throw new BandwidthRtcError("You must call 'connect' before 'publish'");
     }
 
-    let mediaTypes: MediaType[] = [];
-    if (mediaStream.getAudioTracks().length > 0) {
-      mediaTypes.push(MediaType.AUDIO);
-    }
-    if (mediaStream.getVideoTracks().length > 0) {
-      mediaTypes.push(MediaType.VIDEO);
-    }
-
-    const sdpRequest = await this.signaling.requestToPublish(mediaTypes, alias);
-    const endpointId = sdpRequest.endpointId;
-
-    if (audioLevelChangeHandler) {
-      const audioLevelDetector = new AudioLevelDetector({
-        mediaStream: mediaStream,
-      });
-      audioLevelDetector.on("audioLevelChange", audioLevelChangeHandler);
-    }
-
-    const peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
-    this.setupNewPeerConnection(peerConnection, endpointId, mediaTypes, alias);
-    mediaStream.getTracks().forEach((track) => {
-      var sender = peerConnection.addTrack(track, mediaStream);
-
-      // Inject DTMF into one audio track in the stream
-      if (track.kind === "audio" && !this.localDtmfSenders.has(endpointId)) {
-        this.localDtmfSenders.set(endpointId, new DtmfSender(sender));
-      }
-    });
-
-    this.localPeerConnections.set(endpointId, peerConnection);
-    this.localStreams.set(endpointId, mediaStream);
-
-    await this.negotiateSdp(sdpRequest, peerConnection);
-
-    return {
-      endpointId: endpointId,
-      mediaStream: mediaStream,
-      mediaTypes: mediaTypes,
-      alias: alias,
-    };
+    return this.delegate.publish(input, audioLevelChangeHandler, alias, codecPreferences);
   }
 
-  async unpublish(...streams: string[]) {
-    if (streams.length === 0) {
-      streams = Array.from(this.localStreams.keys());
+  /**
+   * Unpublish one or more streams.
+   * @param streams streams to unpublish; leave empty to unpublish all streams
+   */
+  async unpublish(...streams: RtcStream[] | string[]) {
+    if (!this.delegate) {
+      throw new BandwidthRtcError("You must call 'connect' before 'unpublish'");
     }
-    for (const s of streams) {
-      this.signaling.unpublish(s);
-      this.cleanupLocalStreams(s);
+
+    if (this.delegate instanceof BandwidthRtcV2) {
+      streams = (streams as Array<RtcStream | string>).map((stream: RtcStream | string) => {
+        if (typeof stream !== "string") {
+          stream = stream.endpointId;
+        }
+        return stream;
+      });
     }
+
+    // @ts-ignore
+    return this.delegate.unpublish(...streams);
   }
 
   /**
@@ -165,223 +164,72 @@ class BandwidthRtc {
   }
 
   sendDtmf(tone: string, streamId?: string) {
-    if (streamId) {
-      this.localDtmfSenders.get(streamId)?.sendDtmf(tone);
-    } else {
-      this.localDtmfSenders.forEach((dtmfSender) => dtmfSender.sendDtmf(tone));
+    if (!this.delegate) {
+      throw new BandwidthRtcError("You must call 'connect' before 'sendDtmf'");
     }
+
+    return this.delegate.sendDtmf(tone, streamId);
   }
 
-  setMicEnabled(enabled: boolean, streamId?: string) {
-    if (streamId) {
-      this.localStreams
-        .get(streamId)
-        ?.getAudioTracks()
-        .forEach((track) => (track.enabled = enabled));
-    } else {
-      this.localStreams.forEach((stream) => stream.getAudioTracks().forEach((track) => (track.enabled = enabled)));
+  /**
+   * Enable/disable the mic (audio tracks)
+   * @param enabled whether audio streams should be enabled
+   * @param stream specific stream to operate on; optional, defaults to all streams
+   */
+  setMicEnabled(enabled: boolean, stream?: RtcStream | string) {
+    if (!this.delegate) {
+      throw new BandwidthRtcError("You must call 'connect' before 'setMicEnabled'");
     }
+
+    if (this.delegate instanceof BandwidthRtcV2) {
+      if (stream && typeof stream !== "string") {
+        stream = stream.endpointId;
+      }
+    }
+
+    // @ts-ignore
+    return this.delegate.setMicEnabled(enabled, stream);
   }
 
-  setCameraEnabled(enabled: boolean, streamId?: string) {
-    if (streamId) {
-      this.localStreams
-        .get(streamId)
-        ?.getVideoTracks()
-        .forEach((track) => (track.enabled = enabled));
-    } else {
-      this.localStreams.forEach((stream) => stream.getVideoTracks().forEach((track) => (track.enabled = enabled)));
+  /**
+   * Enable/disable the camera (video tracks)
+   * @param enabled whether video streams should be enabled
+   * @param stream specific stream to operate on; optional, defaults to all streams
+   */
+  setCameraEnabled(enabled: boolean, stream?: RtcStream | string) {
+    if (!this.delegate) {
+      throw new BandwidthRtcError("You must call 'connect' before 'setCameraEnabled'");
     }
+
+    if (this.delegate instanceof BandwidthRtcV2) {
+      if (stream && typeof stream !== "string") {
+        stream = stream.endpointId;
+      }
+    }
+
+    // @ts-ignore
+    return this.delegate.setCameraEnabled(enabled, stream);
   }
 
+  /**
+   * Disconnect from the Bandwidth WebRTC platform, and tear down all published streams
+   */
   disconnect() {
-    this.signaling.disconnect();
-    this.stopLocalMedia();
-    this.localStreams = new Map();
-  }
-
-  private createSignalingBroker() {
-    this.signaling = new Signaling();
-  }
-
-  private handleIceCandidateEvent(event: IceCandidateEvent) {
-    const endpointId = event.endpointId;
-    const candidate = event.candidate;
-    const rtcPeerConnection = this.remotePeerConnections.get(endpointId) || this.localPeerConnections.get(endpointId);
-
-    if (rtcPeerConnection && rtcPeerConnection.currentRemoteDescription) {
-      // If we have already created a peer connection and set its remote description, just add the candidate
-      rtcPeerConnection.addIceCandidate(candidate);
-    } else {
-      // Otherwise, we will need to put the candidate on a queue until the remote description is set
-      let remoteIceCandidates = this.iceCandidateQueues.get(endpointId);
-      if (remoteIceCandidates) {
-        remoteIceCandidates.push(candidate);
-      } else {
-        this.iceCandidateQueues.set(endpointId, [candidate]);
-      }
-    }
-  }
-
-  private handleEndpointRemovedEvent(event: EndpointRemovedEvent) {
-    if (this.streamUnavailableHandler) {
-      this.streamUnavailableHandler(event.endpointId);
-    }
-  }
-
-  private stopLocalMedia(streamId?: string) {
-    if (streamId) {
-      // If a stream ID was passed in, just stop that particular one
-      this.localStreams
-        .get(streamId)
-        ?.getTracks()
-        .forEach((track) => track.stop());
-    } else {
-      // Otherwise stop all tracks from all streams
-      this.localStreams.forEach((stream) => {
-        stream.getTracks().forEach((track) => track.stop());
-      });
-    }
-  }
-
-  private async handleSdpNeededEvent(sdpRequest: SdpRequest) {
-    const endpointId = sdpRequest.endpointId;
-    const alias = sdpRequest.alias;
-    const participantId = sdpRequest.participantId;
-    let peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
-    this.setupNewPeerConnection(peerConnection, endpointId, sdpRequest.mediaTypes, alias, participantId);
-
-    this.remotePeerConnections.set(endpointId, peerConnection);
-
-    return this.negotiateSdp(sdpRequest, peerConnection as RTCPeerConnection);
-  }
-
-  private async negotiateSdp(sdpRequest: SdpRequest, peerConnection: RTCPeerConnection): Promise<void> {
-    const endpointId = sdpRequest.endpointId;
-    const direction = sdpRequest.direction;
-
-    let offerOptions = {
-      offerToReceiveAudio: false,
-      offerToReceiveVideo: false,
-    };
-    if (direction.includes("recv")) {
-      offerOptions.offerToReceiveAudio = sdpRequest.mediaTypes.includes(MediaType.AUDIO);
-      offerOptions.offerToReceiveVideo = sdpRequest.mediaTypes.includes(MediaType.VIDEO);
+    if (!this.delegate) {
+      throw new BandwidthRtcError("You must call 'connect' before 'disconnect'");
     }
 
-    const offer = await peerConnection.createOffer(offerOptions);
-    if (!offer.sdp) {
-      throw new Error("Created offer with no SDP");
-    }
-
-    try {
-      const sdpResponse = await this.signaling.offerSdp(offer.sdp, endpointId);
-
-      await peerConnection.setLocalDescription(offer);
-      await peerConnection.setRemoteDescription({
-        type: "answer",
-        sdp: sdpResponse.sdpAnswer,
-      });
-
-      if (sdpResponse.candidates) {
-        sdpResponse.candidates.forEach((candidate) => {
-          peerConnection.addIceCandidate(candidate);
-        });
-      }
-
-      let queuedIceCandidates = this.iceCandidateQueues.get(endpointId);
-      if (queuedIceCandidates) {
-        queuedIceCandidates.forEach((candidate) => {
-          peerConnection.addIceCandidate(candidate);
-        });
-        this.iceCandidateQueues.delete(endpointId);
-      }
-    } catch (e) {
-      if (String(e.message).toLowerCase().includes("sdp")) {
-        throw new SdpOfferRejectedError(e.message);
-      } else {
-        throw e;
-      }
-    }
+    return this.delegate.disconnect();
   }
+}
 
-  private setupNewPeerConnection(peerConnection: RTCPeerConnection, endpointId: string, mediaTypes: MediaType[], alias?: string, participantId?: string): void {
-    peerConnection.onconnectionstatechange = (event: Event) => {
-      const peerConnection = event.target as RTCPeerConnection;
-      const connectionState = peerConnection.connectionState;
-      if (connectionState === "disconnected" || connectionState === "failed") {
-        // TODO: if the peer that is disconnected/failed was a publish, we should try and re-publish it
-        if (this.streamUnavailableHandler) {
-          this.streamUnavailableHandler(endpointId);
-        }
-        this.cleanupRemoteStreams(endpointId);
-      }
-    };
-
-    peerConnection.oniceconnectionstatechange = (event) => {};
-
-    peerConnection.onicegatheringstatechange = (event) => {};
-
-    peerConnection.onnegotiationneeded = (event) => {};
-
-    peerConnection.onsignalingstatechange = (event) => {};
-
-    peerConnection.onicecandidate = (event) => this.signaling.sendIceCandidate(endpointId, event.candidate);
-
-    peerConnection.ontrack = (event: RTCTrackEvent) => {
-      const streams: readonly MediaStream[] = event.streams;
-      const track: MediaStreamTrack = event.track;
-      const transceiver: RTCRtpTransceiver = event.transceiver;
-      const receiver: RTCRtpReceiver = event.receiver;
-
-      if (this.streamAvailableHandler) {
-        this.streamAvailableHandler({
-          endpointId: endpointId,
-          mediaStream: event.streams[0],
-          mediaTypes: mediaTypes,
-          alias: alias,
-          participantId: participantId,
-        });
-      }
-
-      track.onmute = (event) => {};
-
-      track.onunmute = (event) => {};
-
-      track.onended = (event) => {};
-    };
-  }
-
-  private cleanupLocalStreams(...streams: string[]) {
-    if (streams.length === 0) {
-      streams = Array.from(this.localStreams.keys());
-    }
-
-    for (const s of streams) {
-      this.stopLocalMedia(s);
-      this.localStreams.delete(s);
-
-      const localPeerConnection = this.localPeerConnections.get(s);
-      localPeerConnection?.close();
-      this.localPeerConnections.delete(s);
-
-      const dtmfSender = this.localDtmfSenders.get(s);
-      dtmfSender?.disconnect();
-      this.localDtmfSenders.delete(s);
-    }
-  }
-
-  private cleanupRemoteStreams(...streams: string[]) {
-    if (streams.length === 0) {
-      streams = Array.from(this.remotePeerConnections.keys());
-    }
-
-    for (const s of streams) {
-      const remotePeerConnection = this.remotePeerConnections.get(s);
-      remotePeerConnection?.close();
-      this.remotePeerConnections.delete(s);
-    }
-  }
+interface JwtPayload {
+  a?: string;
+  p?: string;
+  v?: string;
+  exp?: string;
+  tid?: string;
+  iss?: string;
 }
 
 export default BandwidthRtc;
