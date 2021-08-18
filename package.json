@@ -9,7 +9,8 @@
     "test": "prettier --check . && jest src --coverage",
     "test:debug": "prettier --check . && node --inspect node_modules/.bin/jest --runInBand --coverage src",
     "preversion": "npm test",
-    "version": "npm run build"
+    "version": "npm run build",
+    "prepare": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc && webpack --config webpack.prod.js"
   },
   "repository": {
     "type": "git",
