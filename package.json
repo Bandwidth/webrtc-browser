@@ -4,13 +4,13 @@
   "description": "SDK for Bandwidth WebRTC Browser Applications",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc && webpack --config webpack.prod.js",
-    "build:dev": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc && webpack --config webpack.dev.js",
+    "build": "rm -rf ./dist/* && prettier --check  . && tsc && webpack --config webpack.prod.js",
+    "build:dev": "rm -rf ./dist/* && prettier --check  . && tsc && webpack --config webpack.dev.js",
     "test": "prettier --check . && jest src --coverage",
-    "test:debug": "prettier --check . && node --inspect node_modules/.bin/jest --runInBand --coverage src",
+    "test:debug": "prettier --check . && node --inspect jest --runInBand --coverage src",
     "preversion": "npm test",
     "version": "npm run build",
-    "prepare": "rm -rf ./dist/* && prettier --check  . && ./node_modules/typescript/bin/tsc && webpack --config webpack.prod.js"
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -36,7 +36,7 @@
     "ts-node": "8.6.2",
     "typedoc": "^0.16.9",
     "typescript": "3.7.5",
-    "webpack": "^4.44.2",
+    "webpack": "^5.52.0",
     "webpack-cli": "^4.2.0",
     "webpack-merge": "^5.7.0"
   },
@@ -45,7 +45,7 @@
     "@types/uuid": "^8.3.0",
     "async-mutex": "^0.3.1",
     "jwt-decode": "^3.1.2",
-    "rpc-websockets": "^5.0.9",
+    "rpc-websockets": "^7.4.14",
     "sdp-transform": "^2.14.1",
     "uuid": "^8.3.0",
     "webrtc-adapter": "^7.6.2"
