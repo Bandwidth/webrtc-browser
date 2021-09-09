@@ -5,7 +5,7 @@ import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
 import { AudioLevelChangeHandler, BandwidthRtcError, MediaType, RtcAuthParams, RtcOptions, RtcStream } from "../types";
-import { PublishSdpAnswer, PublishedStream, StreamMetadata, SubscribeSdpOffer, CodecPreferences, StreamPublishMetadata } from "./types";
+import { CodecPreferences, PublishedStream, PublishSdpAnswer, StreamMetadata, StreamPublishMetadata, SubscribeSdpOffer } from "./types";
 import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
 import { DiagnosticsBatcher } from "./diagnostics";
@@ -49,6 +49,9 @@ export class BandwidthRtc {
 
   // Current SDP revision for the subscribing peer; used to reject outdated SDP offers
   private subscribingPeerConnectionSdpRevision = 0;
+
+  // DTMF
+  private localDtmfSenders: Map<string, RTCDTMFSender> = new Map();
 
   // Event handlers
   private streamAvailableHandler?: { (event: RtcStream): void };
@@ -234,8 +237,17 @@ export class BandwidthRtc {
     return devices;
   }
 
+  /**
+   * Alpha DTMF Sender that layers DTMF tones onto an existing stream.
+   * @param tone The tone as a single character/tone notation. e.g. '1'
+   * @param streamId The optional stream id to play on.
+   */
   sendDtmf(tone: string, streamId?: string) {
-    throw new BandwidthRtcError("DTMF support is not yet implemented");
+    if (streamId) {
+      this.localDtmfSenders.get(streamId)?.insertDTMF(tone);
+    } else {
+      this.localDtmfSenders.forEach((dtmfSender) => dtmfSender.insertDTMF(tone));
+    }
   }
 
   /**
@@ -633,6 +645,11 @@ export class BandwidthRtc {
         streams: [mediaStream],
       });
 
+      // Inject DTMF into one audio track in the stream
+      if (track.kind === "audio" && !this.localDtmfSenders.has(mediaStream.id)) {
+        this.localDtmfSenders.set(mediaStream.id, transceiver.sender.dtmf!);
+      }
+
       if (codecPreferences) {
         if (track.kind === "audio" && codecPreferences.audio) {
           transceiver.setCodecPreferences(codecPreferences.audio);
@@ -659,6 +676,8 @@ export class BandwidthRtc {
           });
         track.stop();
       });
+
+      this.localDtmfSenders.delete(stream.mediaStream.id);
       this.publishedStreams.delete(stream.mediaStream.id);
     }
   }
