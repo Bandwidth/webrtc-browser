@@ -104,7 +104,7 @@ Please see the following resources for more information on MediaStreamConstraint
   - streamId (optional): the stream to 'play' the tone on
 
 ```javascript
-sendDtmf("3");
+bandwidthRtc.sendDtmf("3");
 ```
 
 ## Event Listeners
