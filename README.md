@@ -96,6 +96,17 @@ Please see the following resources for more information on MediaStreamConstraint
 
 - Description: disconnect device from the Bandwidth RTC platform
 
+### DTMF
+
+- Description: send a single VoIP-network friendly DTMF tone. The tone amplitude and duration can not be controlled.
+- Params:
+  - tone: the single digit to send, as a string. [0-9,*,#]
+  - streamId (optional): the stream to 'play' the tone on
+
+```javascript
+bandwidthRtc.sendDtmf("3");
+```
+
 ## Event Listeners
 
 ### onStreamAvailable
