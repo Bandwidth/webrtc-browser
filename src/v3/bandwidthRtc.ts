@@ -238,8 +238,8 @@ export class BandwidthRtc {
   }
 
   /**
-   * Alpha DTMF Sender that layers DTMF tones onto an existing stream.
-   * @param tone The tone as a single character/tone notation. e.g. '1'
+   * DTMF Sender that layers DTMF tones onto an existing stream.
+   * @param tone The DTMF tones to send - a string composed of the characters [0-9,*,#,\,]*
    * @param streamId The optional stream id to play on.
    */
   sendDtmf(tone: string, streamId?: string) {
