@@ -98,13 +98,14 @@ Please see the following resources for more information on MediaStreamConstraint
 
 ### DTMF
 
-- Description: send a single VoIP-network friendly DTMF tone. The tone amplitude and duration can not be controlled.
+- Description: send a set of VoIP-network-friendly DTMF tones. The tone amplitude and duration can not be controlled.
 - Params:
-  - tone: the single digit to send, as a string. [0-9,*,#]
+  - tone: the digits to send, as a string, chosen from the set of valid DTMF characters [0-9,*,#,\,]
   - streamId (optional): the stream to 'play' the tone on
 
 ```javascript
 bandwidthRtc.sendDtmf("3");
+bandwidthRtc.sendDtmf("313,3211*#");
 ```
 
 ## Event Listeners
