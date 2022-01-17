@@ -62,7 +62,8 @@ class Signaling extends EventEmitter {
       });
 
       ws.on("error", (error) => {
-        logger.error(`Websocket error: ${error}`);
+        // TODO: make this a more informative error message
+        logger.error(`Websocket error: ${JSON.stringify(error)}`);
         if (this.pingInterval) {
           clearInterval(this.pingInterval);
         }
