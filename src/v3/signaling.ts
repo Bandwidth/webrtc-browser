@@ -85,6 +85,8 @@ class Signaling extends EventEmitter {
         const finalDiagnostics = this.diagnosticsBatcher.getDiagnostics();
         this.sendDiagnostics(finalDiagnostics);
       }
+      logger.debug("Setting hasSetMediaPreferences to false");
+      this.hasSetMediaPreferences = false;
       this.ws.removeAllListeners();
       this.ws.close();
       this.ws = null;
