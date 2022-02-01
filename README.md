@@ -112,7 +112,7 @@ bandwidthRtc.sendDtmf("313,3211*#");
 
 ### onStreamAvailable
 
-- Description: a media stream is available to attach to the UI
+- Description: a media stream is available to attach to the UI 
 
 ```javascript
 bandwidthRtc.onStreamAvailable((event) => {
