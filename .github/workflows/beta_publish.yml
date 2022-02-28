@@ -1,0 +1,36 @@
+name: Publish Beta Release
+
+on:
+  workflow_dispatch:
+    branches:
+      - beta/*
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+          check-latest: true
+      - name: npm install
+        run: npm install
+      - name: npm version and publish
+        run: |
+          # Example GITHUB_REF for this action would be refs/heads/beta/0.11.0-beta.1 so ${GITHUB_REF:16} resolves to 0.11.0-beta.1
+          export BETA_VERSION=${GITHUB_REF:16}
+          echo "BETA_VERSION=${BETA_VERSION}"
+
+          # Test that the branch name matches the required pattern for beta versions, i.e. 0.11.0-beta.1
+          (echo "$BETA_VERSION" | grep -Eq "^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+") && echo "Branch name compliant" || (echo "Branch name did not match required pattern"; exit 1)
+
+          npm version ${BETA_VERSION} --no-git-tag-version
+
+          echo "//registry.npmjs.org/:_authToken=$NPM_API_TOKEN" >> ~/.npmrc
+          npm publish --tag beta --access public
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_API_TOKEN: ${{ secrets.NPM_API_TOKEN }}
+
