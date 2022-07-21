@@ -23,6 +23,8 @@ export interface RtcAuthParams {
 
 export interface RtcOptions {
   websocketUrl?: string;
+  iceServers?: RTCIceServer[];
+  iceTransportPolicy?: RTCIceTransportPolicy;
 }
 
 export interface RtcStream {

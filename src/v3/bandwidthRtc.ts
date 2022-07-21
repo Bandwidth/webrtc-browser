@@ -4,12 +4,12 @@ if (globalThis.window) {
 import { Mutex } from "async-mutex";
 import * as sdpTransform from "sdp-transform";
 
-import { AudioLevelChangeHandler, BandwidthRtcError, MediaType, RtcAuthParams, RtcOptions, RtcStream } from "../types";
-import { CodecPreferences, PublishedStream, PublishSdpAnswer, StreamMetadata, StreamPublishMetadata, SubscribeSdpOffer } from "./types";
-import Signaling from "./signaling";
 import AudioLevelDetector from "../audioLevelDetector";
-import { DiagnosticsBatcher } from "./diagnostics";
 import logger, { LogLevel } from "../logging";
+import { AudioLevelChangeHandler, BandwidthRtcError, MediaType, RtcAuthParams, RtcOptions, RtcStream } from "../types";
+import { DiagnosticsBatcher } from "./diagnostics";
+import Signaling from "./signaling";
+import { CodecPreferences, PublishedStream, PublishSdpAnswer, StreamMetadata, StreamPublishMetadata, SubscribeSdpOffer } from "./types";
 
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [],
@@ -21,6 +21,8 @@ const HEARTBEAT_DATA_CHANNEL_LABEL = "__heartbeat__";
 const DIAGNOSTICS_DATA_CHANNEL_LABEL = "__diagnostics__";
 
 export class BandwidthRtc {
+  private options?: RtcOptions;
+
   // Batches diagnostic data for debugging
   private diagnosticsBatcher: DiagnosticsBatcher;
 
@@ -83,6 +85,8 @@ export class BandwidthRtc {
    * @param options additional connection options; usually unnecessary
    */
   async connect(authParams: RtcAuthParams, options?: RtcOptions) {
+    this.options = options;
+
     logger.info("Connecting to Bandwidth WebRTC");
     this.signaling.on("sdpOffer", this.handleSubscribeSdpOffer.bind(this));
 
@@ -687,7 +691,13 @@ export class BandwidthRtc {
    * @returns new RTCPeerConnection
    */
   private createPeerConnection() {
-    return new RTCPeerConnection(RTC_CONFIGURATION);
+    const rtcConfiguration = {
+      ...RTC_CONFIGURATION,
+      iceServers: [...(this.options?.iceServers || [])],
+      iceTransportPolicy: this.options?.iceTransportPolicy || "all",
+    };
+    logger.info(rtcConfiguration);
+    return new RTCPeerConnection(rtcConfiguration);
   }
 
   /**
