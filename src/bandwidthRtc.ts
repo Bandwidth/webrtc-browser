@@ -1,12 +1,10 @@
 if (globalThis.window) {
   require("webrtc-adapter");
 }
-import jwt_decode from "jwt-decode";
 
 import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "./types";
 import logger, { LogLevel } from "./logging";
 
-import { BandwidthRtc as BandwidthRtcV2 } from "./v2/bandwidthRtc";
 import { BandwidthRtc as BandwidthRtcV3 } from "./v3/bandwidthRtc";
 import { CodecPreferences } from "./v3/types";
 
@@ -16,7 +14,7 @@ class BandwidthRtc {
   private streamUnavailableHandler?: { (endpointId: string): void };
 
   private logLevel?: LogLevel;
-  private delegate?: BandwidthRtcV2 | BandwidthRtcV3;
+  private delegate?: BandwidthRtcV3;
 
   constructor(logLevel?: LogLevel) {
     if (logLevel) {
@@ -32,14 +30,8 @@ class BandwidthRtc {
    * @param options additional connection options; usually unnecessary
    */
   async connect(authParams: RtcAuthParams, options?: RtcOptions) {
-    const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
-    if (jwtPayload.v?.toLowerCase() === "v3") {
-      logger.info("Using device API version 3");
-      this.delegate = new BandwidthRtcV3(this.logLevel);
-    } else {
-      logger.info("Using device API version 2");
-      this.delegate = new BandwidthRtcV2();
-    }
+    logger.info("Using device API version 3");
+    this.delegate = new BandwidthRtcV3(this.logLevel);
 
     if (this.streamAvailableHandler) {
       this.delegate.onStreamAvailable(this.streamAvailableHandler);
@@ -115,15 +107,6 @@ class BandwidthRtc {
       throw new BandwidthRtcError("You must call 'connect' before 'unpublish'");
     }
 
-    if (this.delegate instanceof BandwidthRtcV2) {
-      streams = (streams as Array<RtcStream | string>).map((stream: RtcStream | string) => {
-        if (typeof stream !== "string") {
-          stream = stream.endpointId;
-        }
-        return stream;
-      });
-    }
-
     // @ts-ignore
     return this.delegate.unpublish(...streams);
   }
@@ -181,12 +164,6 @@ class BandwidthRtc {
       throw new BandwidthRtcError("You must call 'connect' before 'setMicEnabled'");
     }
 
-    if (this.delegate instanceof BandwidthRtcV2) {
-      if (stream && typeof stream !== "string") {
-        stream = stream.endpointId;
-      }
-    }
-
     // @ts-ignore
     return this.delegate.setMicEnabled(enabled, stream);
   }
@@ -199,12 +176,6 @@ class BandwidthRtc {
   setCameraEnabled(enabled: boolean, stream?: RtcStream | string) {
     if (!this.delegate) {
       throw new BandwidthRtcError("You must call 'connect' before 'setCameraEnabled'");
-    }
-
-    if (this.delegate instanceof BandwidthRtcV2) {
-      if (stream && typeof stream !== "string") {
-        stream = stream.endpointId;
-      }
     }
 
     // @ts-ignore

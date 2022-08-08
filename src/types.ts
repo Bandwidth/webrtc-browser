@@ -17,6 +17,10 @@ export enum MediaType {
 
 export type AudioLevelChangeHandler = { (audioLevel: AudioLevel): void };
 
+/**
+ * @property {string} deviceToken - The device token is a "string" in the JWT format.
+ * To be possible the token utilization, parse the token using "jwt_decode" function, the expected result should be a {@link JwtPayload} object.
+ */
 export interface RtcAuthParams {
   deviceToken: string;
 }
