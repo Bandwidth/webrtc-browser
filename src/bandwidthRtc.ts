@@ -40,6 +40,9 @@ class BandwidthRtc {
         this.delegate = new BandwidthRtcV3(this.logLevel);
       }
     }
+    if (!this.delegate) {
+      throw new BandwidthRtcError(`${rtcVersion} is not supported by the SDK.`);
+    }
     if (this.streamAvailableHandler) {
       this.delegate.onStreamAvailable(this.streamAvailableHandler);
     }
