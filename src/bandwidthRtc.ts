@@ -1,6 +1,7 @@
 if (globalThis.window) {
   require("webrtc-adapter");
 }
+import jwt_decode from "jwt-decode";
 
 import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "./types";
 import logger, { LogLevel } from "./logging";
@@ -30,9 +31,15 @@ class BandwidthRtc {
    * @param options additional connection options; usually unnecessary
    */
   async connect(authParams: RtcAuthParams, options?: RtcOptions) {
-    logger.info("Using device API version 3");
-    this.delegate = new BandwidthRtcV3(this.logLevel);
-
+    const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
+    const rtcVersion = jwtPayload.v?.toLowerCase();
+    switch (rtcVersion) {
+      case "v3":
+      default: {
+        logger.info("Using device API version 3");
+        this.delegate = new BandwidthRtcV3(this.logLevel);
+      }
+    }
     if (this.streamAvailableHandler) {
       this.delegate.onStreamAvailable(this.streamAvailableHandler);
     }
