@@ -42,10 +42,9 @@ class BandwidthRtc {
         delegate = new BandwidthRtcV3(this.logLevel);
         break;
       }
-    }
-
-    if (!delegate) {
-      throw new BandwidthRtcError(`${rtcVersion} is not supported by the Bandwidth WebRTC SDK.`);
+      default: {
+        throw new BandwidthRtcError(`${rtcVersion} is not supported by the Bandwidth WebRTC SDK.`);
+      }
     }
 
     return delegate;
