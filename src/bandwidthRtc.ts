@@ -28,7 +28,7 @@ class BandwidthRtc {
   /**
    * Creates the delegate object using the specific version
    * @param authParams connection credentials with version
-   * @returns 
+   * @returns
    */
   private createDelegateObject(authParams: RtcAuthParams): BandwidthRtcV3 {
     const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
