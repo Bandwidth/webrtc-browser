@@ -26,23 +26,39 @@ class BandwidthRtc {
   }
 
   /**
+   * Creates the delegate object using the specific version
+   * @param authParams connection credentials with version
+   * @returns 
+   */
+  private createDelegateObject(authParams: RtcAuthParams): BandwidthRtcV3 {
+    const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
+    const rtcVersion = jwtPayload.v?.toLowerCase();
+
+    let delegate: BandwidthRtcV3 | undefined;
+
+    logger.info(`Using device API version ${rtcVersion}`);
+    switch (rtcVersion) {
+      case "v3": {
+        delegate = new BandwidthRtcV3(this.logLevel);
+        break;
+      }
+    }
+
+    if (!delegate) {
+      throw new BandwidthRtcError(`${rtcVersion} is not supported by the Bandwidth WebRTC SDK.`);
+    }
+
+    return delegate;
+  }
+
+  /**
    * Connect to the Bandwidth WebRTC platform
    * @param authParams connection credentials
    * @param options additional connection options; usually unnecessary
    */
   async connect(authParams: RtcAuthParams, options?: RtcOptions) {
-    const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
-    const rtcVersion = jwtPayload.v?.toLowerCase();
-    switch (rtcVersion) {
-      case "v3":
-      default: {
-        logger.info("Using device API version 3");
-        this.delegate = new BandwidthRtcV3(this.logLevel);
-      }
-    }
-    if (!this.delegate) {
-      throw new BandwidthRtcError(`${rtcVersion} is not supported by the SDK.`);
-    }
+    this.delegate = this.createDelegateObject(authParams);
+
     if (this.streamAvailableHandler) {
       this.delegate.onStreamAvailable(this.streamAvailableHandler);
     }
