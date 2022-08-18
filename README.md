@@ -112,7 +112,7 @@ bandwidthRtc.sendDtmf("313,3211*#");
 
 ### onStreamAvailable
 
-- Description: called when a media stream is available to attach to the UI.  This will be called for every independent stream presented to the Participant, meaning that if a new remote Participant is added to a subscribed Session a new stream will be made available to the browser, and will need to be presented to the UI for consumption by the user.
+- Description: called when a media stream is available to attach to the UI. This will be called for every independent stream presented to the Participant, meaning that if a new remote Participant is added to a subscribed Session a new stream will be made available to the browser, and will need to be presented to the UI for consumption by the user.
 
 ```javascript
 bandwidthRtc.onStreamAvailable((event) => {
