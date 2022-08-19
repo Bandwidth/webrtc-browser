@@ -21,20 +21,10 @@ jobs:
         run: npm install
       - name: npm version and publish
         run: |
-          export MAJOR_MINOR_SEMVER=${GITHUB_REF:10}
-          echo "MAJOR_MINOR_SEMVER=${MAJOR_MINOR_SEMVER}"
-
-          git config user.name $GITHUB_ACTOR
-          git config user.email gh-actions-${GITHUB_ACTOR}@github.com
-          git remote add gh-origin https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-
-          npm version ${MAJOR_MINOR_SEMVER} --force -m "Bump version to %s"
-          git push gh-origin --tags
-
+          npm version $RELEASE_VERSION --no-git-tag-version
           echo "//registry.npmjs.org/:_authToken=$NPM_API_TOKEN" >> ~/.npmrc
           npm publish --access public
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_API_TOKEN: ${{ secrets.NPM_API_TOKEN }}
       - name: Upload Standalone Bundle Asset
         uses: actions/upload-release-asset@v1
