@@ -227,12 +227,11 @@ class BandwidthRtc {
   /**
    * Extract from the issuer the environment information
    * The general form of the issuer string is
-   *  `<environment>:<region_code>[:<subdomain>]`
+   *  `<environment>:<geo_region>[:<subdomain>]`
    *  where:
    *    <environment> is a three character code for the teri of the
    *    environment (dev, stg, prd ...)
-   *    <region_code> is a two digit regional code assigned to aws regions
-   *    See `RegionCode` for a list of regions and codes
+   *    <geo_region> is a two digit regional code assigned to the geo region
    *    <subdomain> an optional subdomain to be used within a region and
    *    environment
    * @param iss
