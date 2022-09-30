@@ -127,7 +127,7 @@ class Signaling extends EventEmitter {
   private getWebsocketURL(options?: RtcOptions): string {
     const envOptions = options?.envOptions;
 
-    if (!!envOptions) {
+    if (!!envOptions && !!envOptions.geoRegion && !!envOptions.environment) {
       return `wss://${!!envOptions.subdomain ? `${envOptions.subdomain}.` : ""}${envOptions.geoRegion}.device.${envOptions.environment}.webrtc.bandwidth.com`;
     }
 
