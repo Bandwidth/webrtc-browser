@@ -27,8 +27,15 @@ export interface RtcAuthParams {
 
 export interface RtcOptions {
   websocketUrl?: string;
+  envOptions?: EnvironmentOptions;
   iceServers?: RTCIceServer[];
   iceTransportPolicy?: RTCIceTransportPolicy;
+}
+
+export interface EnvironmentOptions {
+  environment?: string;
+  geoRegion?: string;
+  subdomain?: string;
 }
 
 export interface RtcStream {

@@ -3,7 +3,7 @@ if (globalThis.window) {
 }
 import jwt_decode from "jwt-decode";
 
-import { AudioLevelChangeHandler, BandwidthRtcError, RtcAuthParams, RtcOptions, RtcStream } from "./types";
+import { AudioLevelChangeHandler, BandwidthRtcError, EnvironmentOptions, RtcAuthParams, RtcOptions, RtcStream } from "./types";
 import logger, { LogLevel } from "./logging";
 
 import { BandwidthRtc as BandwidthRtcV3 } from "./v3/bandwidthRtc";
@@ -27,13 +27,10 @@ class BandwidthRtc {
 
   /**
    * Creates the delegate object using the specific version
-   * @param authParams connection credentials with version
+   * @param rtcVersion version of Bandwidth WebRTC platform
    * @returns
    */
-  private createDelegateObject(authParams: RtcAuthParams): BandwidthRtcV3 {
-    const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
-    const rtcVersion = jwtPayload.v?.toLowerCase();
-
+  private createDelegateObject(rtcVersion: string): BandwidthRtcV3 {
     let delegate: BandwidthRtcV3 | undefined;
 
     logger.info(`Using device API version ${rtcVersion}`);
@@ -56,7 +53,16 @@ class BandwidthRtc {
    * @param options additional connection options; usually unnecessary
    */
   async connect(authParams: RtcAuthParams, options?: RtcOptions) {
-    this.delegate = this.createDelegateObject(authParams);
+    const jwtPayload = jwt_decode<JwtPayload>(authParams.deviceToken);
+    const rtcVersion = jwtPayload.v?.toLowerCase() || "v3";
+
+    const iss = jwtPayload.iss?.toLowerCase();
+
+    if (!!iss) {
+      options = { ...options, envOptions: this.getIssuerEnvironmentOptions(iss) };
+    }
+
+    this.delegate = this.createDelegateObject(rtcVersion);
 
     if (this.streamAvailableHandler) {
       this.delegate.onStreamAvailable(this.streamAvailableHandler);
@@ -216,6 +222,30 @@ class BandwidthRtc {
     }
 
     return this.delegate.disconnect();
+  }
+
+  /**
+   * Extract from the issuer the environment information
+   * The general form of the issuer string is
+   *  `<environment>:<region_code>[:<subdomain>]`
+   *  where:
+   *    <environment> is a three character code for the teri of the
+   *    environment (dev, stg, prd ...)
+   *    <region_code> is a two digit regional code assigned to aws regions
+   *    See `RegionCode` for a list of regions and codes
+   *    <subdomain> an optional subdomain to be used within a region and
+   *    environment
+   * @param iss
+   * @private
+   */
+  private getIssuerEnvironmentOptions(iss: string): EnvironmentOptions {
+    const parts: string[] = iss.split(":");
+
+    return {
+      environment: parts[0],
+      geoRegion: parts[1],
+      subdomain: parts.length >= 3 ? parts[2] : "",
+    } as EnvironmentOptions;
   }
 }
 

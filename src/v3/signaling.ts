@@ -26,7 +26,7 @@ class Signaling extends EventEmitter {
   connect(authParams: RtcAuthParams, options?: RtcOptions) {
     return new Promise<void>((resolve, reject) => {
       let rtcOptions: RtcOptions = {
-        websocketUrl: this.defaultWebsocketUrl,
+        websocketUrl: this.getWebsocketURL(options),
       };
 
       if (options) {
@@ -122,6 +122,16 @@ class Signaling extends EventEmitter {
   private sendDiagnostics(diagnostics: Diagnostics): Promise<void> {
     logger.debug(`Calling "deviceDiagnostics"`);
     return this.ws?.notify("deviceDiagnostics", diagnostics) as Promise<void>;
+  }
+
+  private getWebsocketURL(options?: RtcOptions): string {
+    const envOptions = options?.envOptions;
+
+    if (!!envOptions) {
+      return `wss://${!!envOptions.subdomain ? `${envOptions.subdomain}.` : ""}${envOptions.geoRegion}.device.${envOptions.environment}.webrtc.bandwidth.com`;
+    }
+
+    return this.defaultWebsocketUrl;
   }
 }
 
